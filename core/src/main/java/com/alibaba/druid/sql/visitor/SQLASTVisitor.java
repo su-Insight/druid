@@ -371,6 +371,13 @@ public interface SQLASTVisitor {
     default void endVisit(SQLUpdateStatement x) {
     }
 
+    default boolean visit(SQLGetDiagnosticsStatement x) {
+        return true;
+    }
+
+    default void endVisit(SQLGetDiagnosticsStatement x) {
+    }
+
     default boolean visit(SQLCreateViewStatement x) {
         return true;
     }
