@@ -628,7 +628,9 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
 
     @Override
     public boolean visit(SQLSetStatement x) {
-        print0(ucase ? "SET " : "set ");
+        if (x.isUseSet()) {
+            print0(ucase ? "SET " : "set ");
+        }
 
         SQLSetStatement.Option option = x.getOption();
         if (option != null) {
@@ -636,36 +638,38 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
             print(' ');
         }
 
-        List<SQLAssignItem> items = x.getItems();
-        for (int i = 0; i < items.size(); i++) {
-            if (i != 0) {
-                print0(", ");
-            }
+        printAndAccept(x.getItems(), ", ");
 
-            SQLAssignItem item = x.getItems().get(i);
-            SQLExpr target = item.getTarget();
-            target.accept(this);
+        return false;
+    }
 
-            SQLExpr value = item.getValue();
+    @Override
+    public boolean visit(SQLAssignItem x) {
+        if (!(x.getParent() instanceof SQLSetStatement)) {
+            return super.visit(x);
+        }
 
-            if (target instanceof SQLIdentifierExpr
-                    && ((SQLIdentifierExpr) target).getName().equalsIgnoreCase("TIME ZONE")) {
-                print(' ');
+        x.getTarget().accept(this);
+        SQLExpr value = x.getValue();
+        if (x.getTarget() instanceof SQLIdentifierExpr
+            && ((SQLIdentifierExpr) x.getTarget()).getName().equalsIgnoreCase("TIME ZONE")) {
+            print(' ');
+        } else {
+            if (!((SQLSetStatement) x.getParent()).isUseSet()) {
+                print0(" := ");
+            } else if (value instanceof SQLPropertyExpr
+                && ((SQLPropertyExpr) value).getOwner() instanceof SQLVariantRefExpr) {
+                print0(" := ");
             } else {
-                if (value instanceof SQLPropertyExpr
-                        && ((SQLPropertyExpr) value).getOwner() instanceof SQLVariantRefExpr) {
-                    print0(" := ");
-                } else {
-                    print0(" TO ");
-                }
+                print0(" TO ");
             }
+        }
 
-            if (value instanceof SQLListExpr) {
-                SQLListExpr listExpr = (SQLListExpr) value;
-                printAndAccept(listExpr.getItems(), ", ");
-            } else {
-                value.accept(this);
-            }
+        if (value instanceof SQLListExpr) {
+            SQLListExpr listExpr = (SQLListExpr) value;
+            printAndAccept(listExpr.getItems(), ", ");
+        } else {
+            value.accept(this);
         }
 
         return false;
@@ -1342,9 +1346,7 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
 
         println();
         print0(ucase ? "FROM " : "from ");
-        if (x.getFrom() == null) {
-            print0(ucase ? "DUAL" : "dual");
-        } else {
+        if (x.getFrom() != null) {
             x.getFrom().accept(this);
         }
 
@@ -1378,9 +1380,8 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
             println();
             print0(ucase ? "FOR UPDATE" : "for update");
             if (x.getForUpdateOfSize() > 0) {
-                print('(');
+                print(" OF ");
                 printAndAccept(x.getForUpdateOf(), ", ");
-                print(')');
             }
 
             if (x.isNoWait()) {
