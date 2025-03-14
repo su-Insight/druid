@@ -1326,6 +1326,13 @@ public class SQLASTOutputVisitor extends SQLASTVisitorAdapter implements Paramet
         return false;
     }
 
+    public boolean visit(SQLGetDiagnosticsStatement x) {
+        print(ucase ? "GET DIAGNOSTICS " : "get diagnostics ");
+
+        x.getExpr().accept(this);
+        return false;
+    }
+
     public boolean visit(SQLCastExpr x) {
         if (x.isTry()) {
             print0(ucase ? "TRY_CAST(" : "try_cast(");
@@ -5050,7 +5057,7 @@ public class SQLASTOutputVisitor extends SQLASTVisitorAdapter implements Paramet
 
     @Override
     public boolean visit(SQLAlterSystemSetConfigStatement x) {
-        print0(ucase ? "ALTER SYSTEM SET COFNIG " : "alter system set config ");
+        print0(ucase ? "ALTER SYSTEM SET CONFIG " : "alter system set config ");
 
         printAndAccept(x.getOptions(), " ");
 
