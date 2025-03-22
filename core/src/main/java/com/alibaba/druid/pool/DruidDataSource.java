@@ -1596,9 +1596,11 @@ public class DruidDataSource extends DruidAbstractDataSource
      * @param conn
      * @deprecated
      */
-    public void discardConnection(Connection conn) {
+    @Override
+    public boolean discardConnection(Connection conn) {
+        boolean emptySignalCalled = false;
         if (conn == null) {
-            return;
+            return emptySignalCalled;
         }
 
         try {
@@ -1622,16 +1624,20 @@ public class DruidDataSource extends DruidAbstractDataSource
             discardCount++;
 
             if (activeCount + poolingCount + createTaskCount < minIdle) {
+                emptySignalCalled = true;
                 emptySignal();
             }
         } finally {
             lock.unlock();
         }
+        return emptySignalCalled;
     }
 
-    public void discardConnection(DruidConnectionHolder holder) {
+    @Override
+    public boolean discardConnection(DruidConnectionHolder holder) {
+        boolean emptySignalCalled = false;
         if (holder == null) {
-            return;
+            return emptySignalCalled;
         }
 
         Connection conn = holder.getConnection();
@@ -1647,7 +1653,7 @@ public class DruidDataSource extends DruidAbstractDataSource
         lock.lock();
         try {
             if (holder.discard) {
-                return;
+                return emptySignalCalled;
             }
 
             if (holder.active) {
@@ -1659,11 +1665,13 @@ public class DruidDataSource extends DruidAbstractDataSource
             holder.discard = true;
 
             if (activeCount + poolingCount + createTaskCount < minIdle) {
+                emptySignalCalled = true;
                 emptySignal();
             }
         } finally {
             lock.unlock();
         }
+        return emptySignalCalled;
     }
 
     private DruidPooledConnection getConnectionInternal(long maxWait) throws SQLException {
@@ -1967,8 +1975,10 @@ public class DruidDataSource extends DruidAbstractDataSource
         }
 
         boolean requireDiscard = false;
-        final ReentrantLock lock = conn.lock;
-        lock.lock();
+        // using dataSourceLock when holder dataSource isn't null because shrink used it to access fatal error variables.
+        boolean hasHolderDataSource = (holder != null && holder.getDataSource() != null);
+        ReentrantLock fatalErrorCountLock = hasHolderDataSource ? holder.getDataSource().lock : conn.lock;
+        fatalErrorCountLock.lock();
         try {
             if ((!conn.closed) && !conn.disable) {
                 conn.disable(error);
@@ -1978,24 +1988,19 @@ public class DruidDataSource extends DruidAbstractDataSource
             lastFatalErrorTimeMillis = lastErrorTimeMillis;
             fatalErrorCount++;
             if (fatalErrorCount - fatalErrorCountLastShrink > onFatalErrorMaxActive) {
+                // increase fatalErrorCountLastShrink to avoid that emptySignal would be called again by shrink.
+                fatalErrorCountLastShrink++;
                 onFatalError = true;
+            } else {
+                onFatalError = false;
             }
             lastFatalError = error;
             lastFatalErrorSql = sql;
         } finally {
-            lock.unlock();
+            fatalErrorCountLock.unlock();
         }
 
-        if (onFatalError && holder != null && holder.getDataSource() != null) {
-            ReentrantLock dataSourceLock = holder.getDataSource().lock;
-            dataSourceLock.lock();
-            try {
-                emptySignal();
-            } finally {
-                dataSourceLock.unlock();
-            }
-        }
-
+        boolean emptySignalCalled = false;
         if (requireDiscard) {
             if (holder.statementTrace != null) {
                 holder.lock.lock();
@@ -2008,11 +2013,21 @@ public class DruidDataSource extends DruidAbstractDataSource
                 }
             }
 
-            this.discardConnection(holder);
+            // decrease activeCount first to make sure the following emptySignal should be called successfully.
+            emptySignalCalled = this.discardConnection(holder);
         }
 
         // holder.
         LOG.error("{conn-" + holder.getConnectionId() + "} discard", error);
+
+        if (!emptySignalCalled && onFatalError && hasHolderDataSource) {
+            fatalErrorCountLock.lock();
+            try {
+                emptySignal();
+            } finally {
+                fatalErrorCountLock.unlock();
+            }
+        }
     }
 
     /**
@@ -3417,7 +3432,7 @@ public class DruidDataSource extends DruidAbstractDataSource
             } finally {
                 lock.unlock();
             }
-        } else if (onFatalError || fatalErrorIncrement > 0) {
+        } else if (fatalErrorIncrement > 0) {
             lock.lock();
             try {
                 emptySignal();

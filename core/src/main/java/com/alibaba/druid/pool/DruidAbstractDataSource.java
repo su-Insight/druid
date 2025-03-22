@@ -2178,10 +2178,14 @@ public abstract class DruidAbstractDataSource extends WrapperAdapter implements 
         to.connectTimeoutStr = this.connectTimeoutStr;
     }
 
-    public abstract void discardConnection(Connection realConnection);
+    /**
+     * @param realConnection
+     * @return true if new connection has been requested during the execution.
+     */
+    public abstract boolean discardConnection(Connection realConnection);
 
-    public void discardConnection(DruidConnectionHolder holder) {
-        discardConnection(holder.getConnection());
+    public boolean discardConnection(DruidConnectionHolder holder) {
+        return discardConnection(holder.getConnection());
     }
 
     public boolean isAsyncCloseConnectionEnable() {
