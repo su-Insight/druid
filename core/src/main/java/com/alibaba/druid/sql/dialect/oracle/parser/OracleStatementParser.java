@@ -60,7 +60,7 @@ public class OracleStatementParser extends SQLStatementParser {
             OracleInsertStatement stmt = (OracleInsertStatement) insertStatement;
             this.getExprParser().parseHints(stmt.getHints());
         } else {
-            List<SQLHint> hints = new ArrayList<SQLHint>(1);
+            List<SQLHint> hints = new ArrayList<>(1);
             this.getExprParser().parseHints(hints);
         }
     }
@@ -85,7 +85,7 @@ public class OracleStatementParser extends SQLStatementParser {
 
             if (lexer.token() == (Token.SEMI)) {
                 lexer.nextToken();
-                if (statementList.size() > 0) {
+                if (!statementList.isEmpty()) {
                     SQLStatement lastStmt = statementList.get(statementList.size() - 1);
                     lastStmt.setAfterSemi(true);
                 }
@@ -1186,6 +1186,10 @@ public class OracleStatementParser extends SQLStatementParser {
 
         stmt.setIndex(this.exprParser.name());
         accept(Token.IN);
+        if (lexer.token() == Token.REVERSE) {
+            stmt.setReverse(true);
+            lexer.nextToken();
+        }
         stmt.setRange(this.exprParser.expr());
 
         if (stmt.isAll()) {
@@ -2600,7 +2604,7 @@ public class OracleStatementParser extends SQLStatementParser {
                 lexer.nextToken();
                 stmt.setSort(Boolean.FALSE);
                 continue;
-            } else if (lexer.identifierEquals("REVERSE")) {
+            } else if (lexer.token() == Token.REVERSE) {
                 lexer.nextToken();
                 stmt.setReverse(true);
                 continue;

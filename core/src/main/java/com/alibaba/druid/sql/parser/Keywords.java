@@ -26,17 +26,15 @@ import java.util.Map;
  */
 public class Keywords {
     private final Map<String, Token> keywords;
-
-    private long[] hashArray;
-    private Token[] tokens;
+    private final long[] hashArray;
+    private final Token[] tokens;
 
     public static final Keywords DEFAULT_KEYWORDS;
-
     public static final Keywords SQLITE_KEYWORDS;
     public static final Keywords DM_KEYWORDS;
 
     static {
-        Map<String, Token> map = new HashMap<String, Token>();
+        Map<String, Token> map = new HashMap<>();
 
         map.put("ALL", Token.ALL);
         map.put("ALTER", Token.ALTER);
@@ -164,18 +162,14 @@ public class Keywords {
         DEFAULT_KEYWORDS = new Keywords(map);
 
         {
-            Map<String, Token> sqlitemap = new HashMap<String, Token>();
-
-            sqlitemap.putAll(Keywords.DEFAULT_KEYWORDS.getKeywords());
+            Map<String, Token> sqlitemap = new HashMap<>(Keywords.DEFAULT_KEYWORDS.getKeywords());
 
             sqlitemap.put("LIMIT", Token.LIMIT);
             SQLITE_KEYWORDS = new Keywords(sqlitemap);
         }
 
         {
-            Map<String, Token> sqlitemap = new HashMap<String, Token>();
-
-            sqlitemap.putAll(Keywords.DEFAULT_KEYWORDS.getKeywords());
+            Map<String, Token> sqlitemap = new HashMap<>(Keywords.DEFAULT_KEYWORDS.getKeywords());
 
             sqlitemap.put("MERGE", Token.MERGE);
             sqlitemap.put("MATCHED", Token.MATCHED);
