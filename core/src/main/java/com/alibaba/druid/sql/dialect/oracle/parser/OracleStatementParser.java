@@ -1253,6 +1253,7 @@ public class OracleStatementParser extends SQLStatementParser {
         }
 
         SQLSetStatement stmt = new SQLSetStatement(dbType);
+        stmt.setUseSet(true);
         parseAssignItems(stmt.getItems(), stmt);
 
         stmt.putAttribute("parser.set", Boolean.TRUE);
