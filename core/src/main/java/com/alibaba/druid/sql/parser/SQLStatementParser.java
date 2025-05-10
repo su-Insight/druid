@@ -153,6 +153,12 @@ public class SQLStatementParser extends SQLParser {
                         SQLStatement stmt = statementList.get(statementList.size() - 1);
                         stmt.addAfterComment(lexer.readAndResetComments());
                     }
+                    if (END == lexer.token && dbType == DbType.postgresql) {
+                        SQLStatement stmt = parseEnd();
+                        stmt.setParent(parent);
+                        statementList.add(stmt);
+                        continue;
+                    }
                     return;
                 case SEMI: {
                     int line0 = lexer.getLine();
@@ -4176,8 +4182,9 @@ public class SQLStatementParser extends SQLParser {
             stmt.setExecuteFunc(executeFunc);
             return stmt;
         }
-        List<SQLStatement> body = this.parseStatementList();
-        if (body == null || body.isEmpty()) {
+        List<SQLStatement> body = new ArrayList<>();
+        this.parseStatementList(body, 1);
+        if (body.isEmpty()) {
             throw new ParserException("syntax error");
         }
         stmt.setBody(body.get(0));
@@ -5604,6 +5611,9 @@ public class SQLStatementParser extends SQLParser {
 
         return withQueryClause;
     }
+    public SQLStatement parseEnd() {
+        throw new ParserException("TODO. " + lexer.info());
+    }
 
     public SQLStatement parseWith() {
         SQLWithSubqueryClause with = this.parseWithQuery();
@@ -6381,7 +6391,7 @@ public class SQLStatementParser extends SQLParser {
                             expr = new SQLVariantRefExpr("?", values);
                             values.incrementReplaceCount();
                         } else {
-                            SQLNumberExpr numberExpr = lexer.numberExpr(parent);
+                            SQLNumberExpr numberExpr = lexer.numberExpr(values);
 
                             if (dataType != null
                                     && dataType.nameHashCode64() == FnvHash.Constants.DECIMAL) {
