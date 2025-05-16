@@ -1109,6 +1109,11 @@ public class MySqlCreateTableParser extends SQLCreateTableParser {
                 continue;
             }
 
+            if (lexer.identifierEquals(FnvHash.Constants.SINGLE)) {
+                lexer.nextToken();
+                stmt.setSingle(true);
+                continue;
+            }
             break;
         }
 
@@ -1135,6 +1140,9 @@ public class MySqlCreateTableParser extends SQLCreateTableParser {
                 SQLSelect query = new MySqlSelectParser(this.exprParser).select();
                 stmt.setSelect(query);
                 accept(Token.RPAREN);
+            }
+            if (lexer.token() == Token.WITH) {
+                stmt.setWithSelect(this.parseWith());
             }
         }
 
