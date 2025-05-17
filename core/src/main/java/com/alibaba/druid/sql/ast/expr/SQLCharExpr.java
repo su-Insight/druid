@@ -28,6 +28,8 @@ import java.util.List;
 public class SQLCharExpr extends SQLTextLiteralExpr implements SQLValuableExpr, Comparable<SQLCharExpr> {
     public static final SQLDataType DATA_TYPE = new SQLCharacterDataType("char");
 
+    protected String collate;
+
     public SQLCharExpr() {
     }
 
@@ -40,7 +42,15 @@ public class SQLCharExpr extends SQLTextLiteralExpr implements SQLValuableExpr, 
         this.parent = parent;
     }
 
-    public void output(Appendable buf) {
+    public String getCollate() {
+        return collate;
+    }
+
+    public void setCollate(String collate) {
+        this.collate = collate;
+    }
+
+    public void output(StringBuilder buf) {
         this.accept(new SQLASTOutputVisitor(buf));
     }
 
@@ -59,7 +69,9 @@ public class SQLCharExpr extends SQLTextLiteralExpr implements SQLValuableExpr, 
     }
 
     public SQLCharExpr clone() {
-        return new SQLCharExpr(this.text);
+        SQLCharExpr expr = new SQLCharExpr(this.text);
+        expr.setCollate(collate);
+        return expr;
     }
 
     public SQLDataType computeDataType() {
@@ -68,6 +80,22 @@ public class SQLCharExpr extends SQLTextLiteralExpr implements SQLValuableExpr, 
 
     public List<SQLObject> getChildren() {
         return Collections.emptyList();
+    }
+
+    public SQLDateExpr toDate() {
+        return new SQLDateExpr(this.text);
+    }
+
+    public SQLDateTimeExpr toDateTime() {
+        return new SQLDateTimeExpr(this.text);
+    }
+
+    public SQLTimestampExpr toTimestamp() {
+        String text = this.text;
+        if (text.length() == 10) {
+            text += " 00:00:00";
+        }
+        return new SQLTimestampExpr(text);
     }
 
     @Override

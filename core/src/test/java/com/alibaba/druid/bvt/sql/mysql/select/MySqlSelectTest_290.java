@@ -135,7 +135,7 @@ public class MySqlSelectTest_290 extends MysqlTest {
                 "   select \n" +
                 "   tc.transaction_id,/*/*交易id */\n" +
                 "   tc.sort, \n" +
-                "   CASE \n" +
+                "   CASE\n" +
                 "   WHEN tc.transaction_source LIKE '%智美分销%' THEN  1\n" +
                 "   WHEN tc.transaction_source LIKE '%智美置家%' THEN 2\n" +
                 "   WHEN (IFNULL(tc.transaction_source ,'') NOT LIKE '%智美分销%' AND IFNULL(tc.transaction_source,'')  NOT LIKE '%智美置家%') AND tc.sort='1' THEN 3\n" +
@@ -171,13 +171,13 @@ public class MySqlSelectTest_290 extends MysqlTest {
                 "   tc.certificate_no,\n" +
                 "   tc.address,\n" +
                 "   tc.postal_code,\n" +
-                "   CASE \n" +
+                "   CASE\n" +
                 "   WHEN tc.transaction_source LIKE '%智美分销%' THEN  1\n" +
                 "   WHEN tc.transaction_source LIKE '%智美置家%' THEN 2\n" +
                 "   WHEN (IFNULL(tc.transaction_source ,'') NOT LIKE '%智美分销%' AND IFNULL(tc.transaction_source,'')  NOT LIKE '%智美置家%') AND tc.sort='1' THEN 3\n" +
                 "   END transaction_source_px,\n" +
                 "   DATE_FORMAT(tc.create_date,'%Y-%m-%d %H:%i') create_date /*/*创建日期 */\n" +
-                "   FROM midea_sd_transaction_customer tc \n" +
+                "   FROM /*/*创建日期 */\n\t\tmidea_sd_transaction_customer tc \n" +
                 "   LEFT JOIN( \n" +
                 "    /*/*粒度区分到分钟(只可能有一条,也肯定有一条)*/ \n" +
                 "   select tc1.id,tc1.transaction_id,DATE_FORMAT(MIN(tc1.create_date),'%Y-%m-%d %H:%i') create_date FROM midea_sd_transaction_customer tc1\n" +
@@ -332,7 +332,9 @@ public class MySqlSelectTest_290 extends MysqlTest {
 
         SQLStatement stmt = SQLUtils
                 .parseSingleStatement(sql, DbType.mysql);
-
+        SQLStatement stmt2 = SQLUtils
+            .parseSingleStatement(stmt.toString(), DbType.mysql);
+        assertEquals(stmt.toString().replace('\"','\''), stmt2.toString().replace('\"','\''));
         assertEquals("SELECT houseInfo.id, contract.code, actualReceiMoney.actual_received_date, org.name AS orgName, org.id AS orgId\n" +
                 "\t, IFNULL(projectHead.sale_name, projectHead.name) AS 项目名称, projectHead.id AS projectId\n" +
                 "\t, midea_sd_wbs_item.name AS 标段, mdmbidpck.bd_name AS bdName, houseInfo.product_type_id\n" +
@@ -343,26 +345,26 @@ public class MySqlSelectTest_290 extends MysqlTest {
                 "\t, IFNULL(mdmwbsitem.sales_name, mdmwbsitem.name) AS 楼栋名称\n" +
                 "\t, ifnull(hitem.mdm_full_name, '') AS 主数据房间长名称, houseInfo.sales_name AS full_name\n" +
                 "\t, houseType.house_type_name AS 户型名称, houseType.house_type_form AS 户型结构, pi.name AS 装修标准\n" +
-                "\t, CASE \n" +
+                "\t, (CASE\n" +
                 "\t\tWHEN contract.online_contract_status = '网签' THEN CONCAT('已网签-', contract.online_contract_no)\n" +
                 "\t\tELSE '未网签'\n" +
-                "\tEND AS 合同备案号, contract.code AS 合同编号, orderinfo.sign_date AS order_date\n" +
+                "\tEND) AS 合同备案号, contract.code AS 合同编号, orderinfo.sign_date AS order_date\n" +
                 "\t, str_to_date(orderinfo.vesting_date, '%Y-%m-%d') AS 认购归属时间\n" +
                 "\t, str_to_date(contract.sign_date, '%Y-%m-%d') AS 签约时间\n" +
                 "\t, str_to_date(contract.vesting_date, '%Y-%m-%d') AS 签约归属时间\n" +
                 "\t, str_to_date(contract.approve_date, '%Y-%m-%d') AS 审核时间\n" +
-                "\t, CASE \n" +
+                "\t, (CASE\n" +
                 "\t\tWHEN houseInfo.actual_inner_area IS NULL\n" +
                 "\t\t\tOR houseInfo.actual_inner_area = 0\n" +
                 "\t\tTHEN ifnull(houseInfo.forecast_inner_area, 0)\n" +
                 "\t\tELSE houseInfo.actual_inner_area\n" +
-                "\tEND AS 合同套内面积\n" +
-                "\t, CASE \n" +
+                "\tEND) AS 合同套内面积\n" +
+                "\t, (CASE\n" +
                 "\t\tWHEN houseInfo.actual_floor_area IS NULL\n" +
                 "\t\t\tOR houseInfo.actual_floor_area = 0\n" +
                 "\t\tTHEN ifnull(houseInfo.forecast_floor_area, 0)\n" +
                 "\t\tELSE houseInfo.actual_floor_area\n" +
-                "\tEND AS 合同建筑面积\n" +
+                "\tEND) AS 合同建筑面积\n" +
                 "\t, IF(tran.decoration_moneymanage = 0, IFNULL(tran.deal_price, 0), IFNULL(tran.deal_price, 0) + IFNULL(tran.decoration_amount, 0)) AS 合同金额\n" +
                 "\t, actualReceiMoney.totalMoney, actualReceiMoney.totalMoney1 AS 审核回款金额, actualReceiMoney.totalMoney AS 回款金额\n" +
                 "\t, ROUND(actualReceiMoney.totalMoney / IF(tran.decoration_moneymanage = 0, IFNULL(tran.deal_price, 0), IFNULL(tran.deal_price, 0) + IFNULL(tran.decoration_amount, 0)) * 100, 2) AS 回款比例\n" +
@@ -373,7 +375,7 @@ public class MySqlSelectTest_290 extends MysqlTest {
                 "\t, sszx + sszxfy + sszxk + ss_sjzxf + ss_sjgzzxf AS 装修回款金额\n" +
                 "\t, ROUND((sszx + sszxfy + sszxk + ss_sjzxf + ss_sjgzzxf) / decoration_amount * 100, 2) AS 装修回款比例\n" +
                 "\t, str_to_date(act1_date.actual_received_date, '%Y-%m-%d') AS 最后回款时间\n" +
-                "\t, ROUND(CASE \n" +
+                "\t, ROUND((CASE\n" +
                 "\t\tWHEN tran.decoration_merge_flag = 1\n" +
                 "\t\t\tAND decoration_moneymanage = 1\n" +
                 "\t\tTHEN tran.deal_price_with_decoration / (tran.sta_price + IFNULL(tran.decoration_sta_price, 0))\n" +
@@ -381,25 +383,25 @@ public class MySqlSelectTest_290 extends MysqlTest {
                 "\t\t\tAND decoration_moneymanage = 0\n" +
                 "\t\tTHEN (tran.deal_price - decoration_amount) / tran.sta_price\n" +
                 "\t\tWHEN tran.decoration_merge_flag = 0 THEN tran.deal_price / tran.sta_price\n" +
-                "\tEND * 100, 2) AS 最终折扣\n" +
+                "\tEND) * 100, 2) AS 最终折扣\n" +
                 "\t, payment.name AS 付款方式, sdd_item.NAME AS 付款方式类型, depayment.name AS 装修付款方式, paymentplan.ysdj AS 应收定金, actualReceiMoney.ssdj AS 实收定金\n" +
                 "\t, paymentplan.yssq AS 应收首期, actualReceiMoney.sssq AS 实收首期, paymentplan.yslk AS 应收楼款, actualReceiMoney.sslk AS 实收楼款, paymentplan.ysaj AS 应收按揭\n" +
                 "\t, actualReceiMoney.ssaj AS 实收按揭, paymentplan.ysbc AS 应收面积差款, actualReceiMoney.ssbc AS 实收面积差款, paymentplan.ysdsfy AS 应收代收费用, actualReceiMoney.ssdsfy AS 实收代收费用\n" +
                 "\t, salesTeam.salesName AS 置业顾问, customerNameItem2.sourceChannel AS \"渠道/推荐\"\n" +
-                "\t, CASE \n" +
+                "\t, (CASE\n" +
                 "\t\tWHEN tran.employees_buy_flag = 1 THEN '是'\n" +
                 "\t\tELSE '否'\n" +
-                "\tEND AS 是否员工购房\n" +
+                "\tEND) AS 是否员工购房\n" +
                 "\t, IF(houseInfo.talent_house_flag = 1, '是', '否') AS 是否人才房\n" +
                 "\t, sddictitem.name AS paymentTypeCodeName, str_to_date(contract.online_contract_date, '%Y-%m-%d') AS 网签日期\n" +
                 "\t, str_to_date(contract.sign_date, '%Y-%m-%d') AS 草签日期\n" +
                 "\t, str_to_date(orderinfo.expect_sign_date, '%Y-%m-%d') AS 预计签约日期\n" +
-                "\t, CASE \n" +
+                "\t, (CASE\n" +
                 "\t\tWHEN orderinfo.expect_sign_date IS NOT NULL\n" +
                 "\t\t\tAND orderinfo.expect_sign_date > contract.vesting_date\n" +
                 "\t\tTHEN '不逾期'\n" +
                 "\t\tELSE '逾期'\n" +
-                "\tEND AS 是否逾期, contract.appointed_deliver_date AS '交付日期', paymentplan.whkAmount AS '未回款金额'\n" +
+                "\tEND) AS 是否逾期, contract.appointed_deliver_date AS '交付日期', paymentplan.whkAmount AS '未回款金额'\n" +
                 "\t, IFNULL(ui.sale_unit_name, ui.unit_no) AS 单元名称\n" +
                 "\t, IFNULL(fi.sales_floor_name, fi.floor_no) AS 楼层, sitem.`name` AS '客户属性'\n" +
                 "\t, tran.expire_date AS '税单到期日'\n" +
@@ -414,7 +416,7 @@ public class MySqlSelectTest_290 extends MysqlTest {
                 "\t\t\tSELECT tin.transaction_id, min(tin.transaction_source_px) AS transaction_source_px_min\n" +
                 "\t\t\tFROM (\n" +
                 "\t\t\t\tSELECT tc.transaction_id, tc.sort\n" +
-                "\t\t\t\t\t, CASE \n" +
+                "\t\t\t\t\t, CASE\n" +
                 "\t\t\t\t\t\tWHEN tc.transaction_source LIKE '%智美分销%' THEN 1\n" +
                 "\t\t\t\t\t\tWHEN tc.transaction_source LIKE '%智美置家%' THEN 2\n" +
                 "\t\t\t\t\t\tWHEN IFNULL(tc.transaction_source, '') NOT LIKE '%智美分销%'\n" +
@@ -422,7 +424,8 @@ public class MySqlSelectTest_290 extends MysqlTest {
                 "\t\t\t\t\t\t\tAND tc.sort = '1'\n" +
                 "\t\t\t\t\t\tTHEN 3\n" +
                 "\t\t\t\t\tEND AS transaction_source_px, DATE_FORMAT(tc.create_date, '%Y-%m-%d %H:%i') AS create_date\n" +
-                "\t\t\t\tFROM midea_sd_transaction_customer tc\n" +
+                "\t\t\t\tFROM  /*/*创建日期 */\n" +
+                "\t\t\t\tmidea_sd_transaction_customer tc\n" +
                 "\t\t\t\t\tLEFT JOIN (\n" +
                 "\t\t\t\t\t\t/* /*粒度区分到分钟(只可能有一条,也肯定有一条) */\n" +
                 "\t\t\t\t\t\tSELECT tc1.id, tc1.transaction_id\n" +
@@ -444,7 +447,7 @@ public class MySqlSelectTest_290 extends MysqlTest {
                 "\t\t\t\t\tSELECT tc.id, tc.transaction_id, tc.customer_name, tc.sort, tc.transaction_source\n" +
                 "\t\t\t\t\t\t, tc.sales_org_id, tc.potential_customer_id, tc.customer_source_id, tc.mobile_phone, tc.certificate_type\n" +
                 "\t\t\t\t\t\t, tc.certificate_no, tc.address, tc.postal_code\n" +
-                "\t\t\t\t\t\t, CASE \n" +
+                "\t\t\t\t\t\t, CASE\n" +
                 "\t\t\t\t\t\t\tWHEN tc.transaction_source LIKE '%智美分销%' THEN 1\n" +
                 "\t\t\t\t\t\t\tWHEN tc.transaction_source LIKE '%智美置家%' THEN 2\n" +
                 "\t\t\t\t\t\t\tWHEN IFNULL(tc.transaction_source, '') NOT LIKE '%智美分销%'\n" +
@@ -452,7 +455,8 @@ public class MySqlSelectTest_290 extends MysqlTest {
                 "\t\t\t\t\t\t\t\tAND tc.sort = '1'\n" +
                 "\t\t\t\t\t\t\tTHEN 3\n" +
                 "\t\t\t\t\t\tEND AS transaction_source_px, DATE_FORMAT(tc.create_date, '%Y-%m-%d %H:%i') AS create_date\n" +
-                "\t\t\t\t\tFROM midea_sd_transaction_customer tc\n" +
+                "\t\t\t\t\tFROM  /*/*创建日期 */\n" +
+                "\t\t\t\t\tmidea_sd_transaction_customer tc\n" +
                 "\t\t\t\t\t\tLEFT JOIN (\n" +
                 "\t\t\t\t\t\t\t/*/*粒度区分到分钟(只可能有一条,也肯定有一条)*/\n" +
                 "\t\t\t\t\t\t\tSELECT tc1.id, tc1.transaction_id\n" +
@@ -474,79 +478,83 @@ public class MySqlSelectTest_290 extends MysqlTest {
                 "\tLEFT JOIN midea_sd_project_head projectHead ON tran.project_id = projectHead.id\n" +
                 "\tLEFT JOIN midea_sd_orgnazation org ON org.id = projectHead.orgnazation_id\n" +
                 "\tLEFT JOIN midea_sd_house_info houseInfo ON tran.house_id = houseInfo.id\n" +
-                "\tLEFT JOIN midea_sd_unit_info ui ON ui.id = houseInfo.unit_id\n" +
-                "\tLEFT JOIN midea_sd_floor_info fi ON fi.id = houseInfo.floor_id\n" +
+                "\tLEFT JOIN midea_sd_unit_info ui ON ui.id = houseInfo.unit_id /*/*add by zhangxiaojin 2019-05-21*/\n" +
+                "\t\t\n" +
+                "\tLEFT JOIN midea_sd_floor_info fi ON fi.id = houseInfo.floor_id /*/*add by zhangxiaojin 2019-05-21 */\n" +
+                "\t\t\n" +
                 "\tLEFT JOIN midea_sd_house_item hitem ON hitem.id = houseInfo.id\n" +
                 "\tLEFT JOIN midea_sd_wbs_item build ON build.id = houseInfo.building_id\n" +
                 "\tLEFT JOIN midea_sd_mdm_wbs_item mdmwbsitem ON mdmwbsitem.wbs_head_id = build.wbs_head_id\n" +
-                "\tLEFT JOIN midea_sd_mdm_bid_package mdmbidpck ON mdmbidpck.id = mdmwbsitem.bd_id\n" +
+                "\tLEFT JOIN midea_sd_mdm_bid_package mdmbidpck ON mdmbidpck.id = mdmwbsitem.bd_id /* LEFT JOIN midea_sd_product_type AS productType ON houseInfo.product_type_id = productType.id */\n" +
+                "\t\t\n" +
                 "\tLEFT JOIN midea_sd_mdm_product mp ON mp.id = hitem.product_id\n" +
                 "\tLEFT JOIN midea_sd_wbs_attribute_parameter_item pi ON pi.code = mp.decoration_type_code\n" +
                 "\tLEFT JOIN midea_sd_product_type productType ON mp.product_type_id = productType.id\n" +
                 "\tLEFT JOIN midea_sd_product_type ptt ON ptt.id = productType.parent_id\n" +
                 "\tLEFT JOIN midea_sd_wbs_item ON tran.wbs_id = midea_sd_wbs_item.wbs_head_id\n" +
-                "\tLEFT JOIN midea_sd_house_type houseType ON houseType.id = houseInfo.house_type_id\n" +
+                "\tLEFT JOIN midea_sd_house_type houseType ON houseType.id = houseInfo.house_type_id /*LEFT JOIN midea_sd_decoration_standard_config decoration ON tran.decoration_standard_config_id = decoration.id */\n" +
+                "\t\t\n" +
                 "\tLEFT JOIN midea_sd_after_sales aftersales ON contract.transaction_id = aftersales.transaction_id\n" +
                 "\tLEFT JOIN midea_sd_order_info orderinfo ON tran.id = orderinfo.transaction_id\n" +
                 "\tLEFT JOIN (\n" +
                 "\t\tSELECT octt.id, max(rh.actual_received_date) AS actual_received_date\n" +
-                "\t\t\t, SUM(CASE \n" +
+                "\t\t\t, SUM(CASE\n" +
                 "\t\t\t\tWHEN fund_name_code = 'FIFT01001' THEN actual_amount_total\n" +
                 "\t\t\t\tELSE 0\n" +
                 "\t\t\tEND) AS ssdj\n" +
-                "\t\t\t, SUM(CASE \n" +
+                "\t\t\t, SUM(CASE\n" +
                 "\t\t\t\tWHEN fund_name_code = 'FIFT01002' THEN actual_amount_total\n" +
                 "\t\t\t\tELSE 0\n" +
                 "\t\t\tEND) AS sssq\n" +
-                "\t\t\t, SUM(CASE \n" +
+                "\t\t\t, SUM(CASE\n" +
                 "\t\t\t\tWHEN fund_name_code = 'FIFT01003' THEN actual_amount_total\n" +
                 "\t\t\t\tELSE 0\n" +
                 "\t\t\tEND) AS sslk\n" +
-                "\t\t\t, SUM(CASE \n" +
+                "\t\t\t, SUM(CASE\n" +
                 "\t\t\t\tWHEN fund_name_code = 'FIFT01004' THEN actual_amount_total\n" +
                 "\t\t\t\tELSE 0\n" +
                 "\t\t\tEND) AS ssbc\n" +
-                "\t\t\t, SUM(CASE \n" +
+                "\t\t\t, SUM(CASE\n" +
                 "\t\t\t\tWHEN fund_name_code = 'FIFT01007' THEN actual_amount_total\n" +
                 "\t\t\t\tELSE 0\n" +
                 "\t\t\tEND) AS sszx\n" +
-                "\t\t\t, SUM(CASE \n" +
+                "\t\t\t, SUM(CASE\n" +
                 "\t\t\t\tWHEN fund_name_code = 'FIFT01005' THEN actual_amount_total\n" +
                 "\t\t\t\tELSE 0\n" +
                 "\t\t\tEND) AS sszxfy\n" +
-                "\t\t\t, SUM(CASE \n" +
+                "\t\t\t, SUM(CASE\n" +
                 "\t\t\t\tWHEN fund_name_code = 'FIFT01008' THEN actual_amount_total\n" +
                 "\t\t\t\tELSE 0\n" +
                 "\t\t\tEND) AS sslybzj\n" +
-                "\t\t\t, SUM(CASE \n" +
+                "\t\t\t, SUM(CASE\n" +
                 "\t\t\t\tWHEN fund_name_code = 'FIFT01009' THEN actual_amount_total\n" +
                 "\t\t\t\tELSE 0\n" +
                 "\t\t\tEND) AS sszj\n" +
-                "\t\t\t, SUM(CASE \n" +
+                "\t\t\t, SUM(CASE\n" +
                 "\t\t\t\tWHEN fund_name_code = 'FIFT02001' THEN actual_amount_total\n" +
                 "\t\t\t\tELSE 0\n" +
                 "\t\t\tEND) AS sssy\n" +
-                "\t\t\t, SUM(CASE \n" +
+                "\t\t\t, SUM(CASE\n" +
                 "\t\t\t\tWHEN fund_name_code = 'FIFT02002' THEN actual_amount_total\n" +
                 "\t\t\t\tELSE 0\n" +
                 "\t\t\tEND) AS ssgjj\n" +
-                "\t\t\t, SUM(CASE \n" +
+                "\t\t\t, SUM(CASE\n" +
                 "\t\t\t\tWHEN fund_name_code = 'FIFT02003' THEN actual_amount_total\n" +
                 "\t\t\t\tELSE 0\n" +
                 "\t\t\tEND) AS sszxk\n" +
-                "\t\t\t, SUM(CASE \n" +
+                "\t\t\t, SUM(CASE\n" +
                 "\t\t\t\tWHEN fund_name_code = 'FIFT01010' THEN actual_amount_total\n" +
                 "\t\t\t\tELSE 0\n" +
                 "\t\t\tEND) AS ss_sjzxf\n" +
-                "\t\t\t, SUM(CASE \n" +
+                "\t\t\t, SUM(CASE\n" +
                 "\t\t\t\tWHEN fund_name_code = 'FIFT01012' THEN actual_amount_total\n" +
                 "\t\t\t\tELSE 0\n" +
                 "\t\t\tEND) AS ss_sjgzzxf\n" +
-                "\t\t\t, SUM(CASE \n" +
+                "\t\t\t, SUM(CASE\n" +
                 "\t\t\t\tWHEN fund_type_code = 'FIFT02' THEN actual_amount_total\n" +
                 "\t\t\t\tELSE 0\n" +
                 "\t\t\tEND) AS ssaj\n" +
-                "\t\t\t, SUM(CASE \n" +
+                "\t\t\t, SUM(CASE\n" +
                 "\t\t\t\tWHEN fund_type_code = 'FIFT03' THEN actual_amount_total\n" +
                 "\t\t\t\tELSE 0\n" +
                 "\t\t\tEND) AS ssdsfy\n" +
@@ -580,61 +588,61 @@ public class MySqlSelectTest_290 extends MysqlTest {
                 "\tON tran.id = act1_date.id\n" +
                 "\tLEFT JOIN (\n" +
                 "\t\tSELECT ort.id\n" +
-                "\t\t\t, SUM(CASE \n" +
+                "\t\t\t, SUM(CASE\n" +
                 "\t\t\t\tWHEN fund_name_code = 'FIFT01001' THEN plan_amount_total\n" +
                 "\t\t\t\tELSE 0\n" +
                 "\t\t\tEND) AS ysdj\n" +
-                "\t\t\t, SUM(CASE \n" +
+                "\t\t\t, SUM(CASE\n" +
                 "\t\t\t\tWHEN fund_name_code = 'FIFT01002' THEN plan_amount_total\n" +
                 "\t\t\t\tELSE 0\n" +
                 "\t\t\tEND) AS yssq\n" +
-                "\t\t\t, SUM(CASE \n" +
+                "\t\t\t, SUM(CASE\n" +
                 "\t\t\t\tWHEN fund_name_code = 'FIFT01003' THEN plan_amount_total\n" +
                 "\t\t\t\tELSE 0\n" +
                 "\t\t\tEND) AS yslk\n" +
-                "\t\t\t, SUM(CASE \n" +
+                "\t\t\t, SUM(CASE\n" +
                 "\t\t\t\tWHEN fund_name_code = 'FIFT01004' THEN plan_amount_total\n" +
                 "\t\t\t\tELSE 0\n" +
                 "\t\t\tEND) AS ysbc\n" +
-                "\t\t\t, SUM(CASE \n" +
+                "\t\t\t, SUM(CASE\n" +
                 "\t\t\t\tWHEN fund_name_code = 'FIFT01005' THEN plan_amount_total\n" +
                 "\t\t\t\tELSE 0\n" +
                 "\t\t\tEND) AS yszx\n" +
-                "\t\t\t, SUM(CASE \n" +
+                "\t\t\t, SUM(CASE\n" +
                 "\t\t\t\tWHEN fund_name_code = 'FIFT01006' THEN plan_amount_total\n" +
                 "\t\t\t\tELSE 0\n" +
                 "\t\t\tEND) AS yszxfy\n" +
-                "\t\t\t, SUM(CASE \n" +
+                "\t\t\t, SUM(CASE\n" +
                 "\t\t\t\tWHEN fund_name_code = 'FIFT01007' THEN plan_amount_total\n" +
                 "\t\t\t\tELSE 0\n" +
                 "\t\t\tEND) AS yslybzj\n" +
-                "\t\t\t, SUM(CASE \n" +
+                "\t\t\t, SUM(CASE\n" +
                 "\t\t\t\tWHEN fund_name_code = 'FIFT01008' THEN plan_amount_total\n" +
                 "\t\t\t\tELSE 0\n" +
                 "\t\t\tEND) AS yszj\n" +
-                "\t\t\t, SUM(CASE \n" +
+                "\t\t\t, SUM(CASE\n" +
                 "\t\t\t\tWHEN fund_name_code = 'FIFT02001' THEN plan_amount_total\n" +
                 "\t\t\t\tELSE 0\n" +
                 "\t\t\tEND) AS yssy\n" +
-                "\t\t\t, SUM(CASE \n" +
+                "\t\t\t, SUM(CASE\n" +
                 "\t\t\t\tWHEN fund_name_code = 'FIFT02002' THEN plan_amount_total\n" +
                 "\t\t\t\tELSE 0\n" +
                 "\t\t\tEND) AS ysgjj\n" +
-                "\t\t\t, SUM(CASE \n" +
+                "\t\t\t, SUM(CASE\n" +
                 "\t\t\t\tWHEN fund_name_code = 'FIFT02003' THEN plan_amount_total\n" +
                 "\t\t\t\tELSE 0\n" +
                 "\t\t\tEND) AS yszxk\n" +
-                "\t\t\t, SUM(CASE \n" +
+                "\t\t\t, SUM(CASE\n" +
                 "\t\t\t\tWHEN fund_type_code = 'FIFT02' THEN plan_amount_total\n" +
                 "\t\t\t\tELSE 0\n" +
                 "\t\t\tEND) AS ysaj\n" +
-                "\t\t\t, SUM(CASE \n" +
+                "\t\t\t, SUM(CASE\n" +
                 "\t\t\t\tWHEN fund_type_code = 'FIFT03' THEN plan_amount_total\n" +
                 "\t\t\t\tELSE 0\n" +
                 "\t\t\tEND) AS ysdsfy\n" +
                 "\t\t\t, SUM(plan_amount_total) AS ystotalMoney\n" +
-                "\t\t\t, SUM(CASE \n" +
-                "\t\t\t\tWHEN fund_type_code IN ('FIFT02', 'FIFT01') THEN plan_amount_total - received_amount_total\n" +
+                "\t\t\t, SUM(CASE\n" +
+                "\t\t\t\tWHEN fund_type_code IN ('FIFT02', 'FIFT01') THEN (plan_amount_total - received_amount_total)\n" +
                 "\t\t\t\tELSE 0\n" +
                 "\t\t\tEND) AS whkAmount\n" +
                 "\t\tFROM midea_sd_payment_plan pp\n" +
@@ -656,7 +664,7 @@ public class MySqlSelectTest_290 extends MysqlTest {
                 "\t\t\t) ra3\n" +
                 "\t\t\tON ra3.transaction_id = ra2.transaction_id\n" +
                 "\t\t\t\tAND ra3.exec_date = ra1.exec_date\n" +
-                "\t\tWHERE ra1.status_code = 'SD050104' -- <projectId> AND ra1.project_id in ( ?{projectId} )</projectId> \n" +
+                "\t\tWHERE ra1.status_code = 'SD050104' -- <projectId> AND ra1.project_id in ( ?{projectId} )</projectId>\n" +
                 "\t) areaDetail\n" +
                 "\tON areaDetail.transaction_id = tran.id\n" +
                 "\tLEFT JOIN midea_sd_payment_method payment ON tran.payment_method_id = payment.id\n" +
@@ -677,14 +685,31 @@ public class MySqlSelectTest_290 extends MysqlTest {
                 "WHERE contract.status_code IN ('SD040501', 'SD040502') -- <orgId> AND org.id in (?{orgId}) </orgId>\n" +
                 "-- <projectId> AND tran.project_id in ( ?{projectId} )</projectId>\n" +
                 "-- <startDate2>AND contract.vesting_date >= ?{startDate2} </startDate2>\n" +
-                "-- <endDate2> AND  contract.vesting_date <= ?{endDate2} </endDate2> -- <orgId> AND org.id in (?{orgId}) </orgId>\n" +
-                "-- <projectId> AND tran.project_id in ( ?{projectId} )</projectId>\n" +
-                "-- <startDate2>AND contract.vesting_date >= ?{startDate2} </startDate2>\n" +
                 "-- <endDate2> AND  contract.vesting_date <= ?{endDate2} </endDate2>\n" +
                 "GROUP BY contract.id", stmt.toString());
 
         System.out.println(stmt.toString());
     }
+    public void test_1() throws Exception {
+        String sql = "SELECT * from tbl1111\n" +
+            "        WHERE\n" +
+            "        contract.status_code in ('SD040501','SD040502')\n" +
+            "       -- aaaaa\n" +
+            "       -- bbbbb\n" +
+            "       -- ccccc\n" +
+            "       -- ddddd\n" +
+            "        GROUP BY contract.id\n" +
+            "\t\t\t\t\n" +
+            "\t\t\t\t";
 
+        SQLStatement stmt = SQLUtils
+            .parseSingleStatement(sql, DbType.mysql);
+        System.out.println("第一次生成的sql==="+stmt.toString());
+        SQLStatement stmt2 = SQLUtils
+            .parseSingleStatement(stmt.toString(), DbType.mysql);
+        System.out.println("第二次生成的sql==="+stmt2.toString());
+        assertEquals(stmt.toString().replace('\"', '\''), stmt2.toString().replace('\"', '\''));
+
+    }
 
 }

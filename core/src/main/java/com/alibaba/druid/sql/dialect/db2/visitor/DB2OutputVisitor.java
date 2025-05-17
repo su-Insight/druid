@@ -18,7 +18,6 @@ package com.alibaba.druid.sql.dialect.db2.visitor;
 import com.alibaba.druid.DbType;
 import com.alibaba.druid.sql.ast.SQLExpr;
 import com.alibaba.druid.sql.ast.SQLName;
-import com.alibaba.druid.sql.ast.SQLPartitionBy;
 import com.alibaba.druid.sql.ast.expr.*;
 import com.alibaba.druid.sql.ast.statement.SQLAlterTableAddColumn;
 import com.alibaba.druid.sql.ast.statement.SQLColumnDefinition;
@@ -29,13 +28,12 @@ import com.alibaba.druid.sql.dialect.db2.ast.stmt.DB2ValuesStatement;
 import com.alibaba.druid.sql.visitor.SQLASTOutputVisitor;
 
 public class DB2OutputVisitor extends SQLASTOutputVisitor implements DB2ASTVisitor {
-    public DB2OutputVisitor(Appendable appender) {
+    public DB2OutputVisitor(StringBuilder appender) {
         super(appender, DbType.db2);
     }
 
-    public DB2OutputVisitor(Appendable appender, boolean parameterized) {
-        super(appender, parameterized);
-        this.dbType = DbType.db2;
+    public DB2OutputVisitor(StringBuilder appender, boolean parameterized) {
+        super(appender, DbType.db2, parameterized);
     }
 
     @Override
@@ -51,6 +49,10 @@ public class DB2OutputVisitor extends SQLASTOutputVisitor implements DB2ASTVisit
             println();
             print0(ucase ? "WITH " : "with ");
             print0(x.getIsolation().name());
+            if (x.getLockRequest() != null) {
+                println();
+                print0(ucase ? "USE AND KEEP " + x.getLockRequest().name() + " LOCKS" : "use and keep " + x.getLockRequest().name().toLowerCase() + " locks");
+            }
         }
 
         if (x.getOptimizeFor() != null) {
@@ -117,12 +119,7 @@ public class DB2OutputVisitor extends SQLASTOutputVisitor implements DB2ASTVisit
             validproc.accept(this);
         }
 
-        SQLPartitionBy partitionBy = x.getPartitioning();
-        if (partitionBy != null) {
-            println();
-            print0(ucase ? "PARTITION BY " : "partition by ");
-            partitionBy.accept(this);
-        }
+        printPartitionBy(x);
 
         Boolean compress = x.getCompress();
         if (compress != null) {

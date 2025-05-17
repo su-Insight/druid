@@ -15,7 +15,6 @@
  */
 package com.alibaba.druid.sql.ast.statement;
 
-import com.alibaba.druid.FastsqlException;
 import com.alibaba.druid.sql.ast.SQLExpr;
 import com.alibaba.druid.sql.ast.SQLName;
 import com.alibaba.druid.sql.ast.SQLObjectImpl;
@@ -24,13 +23,16 @@ import com.alibaba.druid.sql.ast.expr.SQLIdentifierExpr;
 import com.alibaba.druid.sql.ast.expr.SQLPropertyExpr;
 import com.alibaba.druid.sql.visitor.SQLASTVisitor;
 
-import java.io.IOException;
-
 public class SQLUpdateSetItem extends SQLObjectImpl implements SQLReplaceable {
     private SQLExpr column;
     private SQLExpr value;
 
     public SQLUpdateSetItem() {
+    }
+
+    public SQLUpdateSetItem(SQLExpr column, SQLExpr value) {
+        this.setColumn(column);
+        this.setValue(value);
     }
 
     public SQLExpr getColumn() {
@@ -73,14 +75,10 @@ public class SQLUpdateSetItem extends SQLObjectImpl implements SQLReplaceable {
         this.value = value;
     }
 
-    public void output(Appendable buf) {
-        try {
-            column.output(buf);
-            buf.append(" = ");
-            value.output(buf);
-        } catch (IOException ex) {
-            throw new FastsqlException("output error", ex);
-        }
+    public void output(StringBuilder buf) {
+        column.output(buf);
+        buf.append(" = ");
+        value.output(buf);
     }
 
     @Override

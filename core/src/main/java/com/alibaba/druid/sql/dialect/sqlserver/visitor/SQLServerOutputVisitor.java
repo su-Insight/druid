@@ -22,7 +22,6 @@ import com.alibaba.druid.sql.ast.expr.SQLSequenceExpr;
 import com.alibaba.druid.sql.ast.statement.*;
 import com.alibaba.druid.sql.dialect.sqlserver.ast.SQLServerOutput;
 import com.alibaba.druid.sql.dialect.sqlserver.ast.SQLServerSelectQueryBlock;
-import com.alibaba.druid.sql.dialect.sqlserver.ast.SQLServerTop;
 import com.alibaba.druid.sql.dialect.sqlserver.ast.expr.SQLServerObjectReferenceExpr;
 import com.alibaba.druid.sql.dialect.sqlserver.ast.stmt.*;
 import com.alibaba.druid.sql.dialect.sqlserver.ast.stmt.SQLServerExecStatement.SQLServerParameter;
@@ -33,13 +32,12 @@ import com.alibaba.druid.util.FnvHash;
 import java.util.List;
 
 public class SQLServerOutputVisitor extends SQLASTOutputVisitor implements SQLServerASTVisitor {
-    public SQLServerOutputVisitor(Appendable appender) {
+    public SQLServerOutputVisitor(StringBuilder appender) {
         super(appender, DbType.sqlserver);
     }
 
-    public SQLServerOutputVisitor(Appendable appender, boolean parameterized) {
-        super(appender, parameterized);
-        this.dbType = DbType.sqlserver;
+    public SQLServerOutputVisitor(StringBuilder appender, boolean parameterized) {
+        super(appender, DbType.sqlserver, parameterized);
     }
 
     public boolean visit(SQLServerSelectQueryBlock x) {
@@ -53,75 +51,21 @@ public class SQLServerOutputVisitor extends SQLASTOutputVisitor implements SQLSe
             print0(ucase ? "UNIQUE " : "unique ");
         }
 
-        SQLServerTop top = x.getTop();
+        SQLTop top = x.getTop();
         if (top != null) {
             visit(top);
             print(' ');
         }
 
         printSelectList(x.getSelectList());
-
-        SQLExprTableSource into = x.getInto();
-        if (into != null) {
-            println();
-            print0(ucase ? "INTO " : "into ");
-            printTableSource(into);
-        }
-
-        SQLTableSource from = x.getFrom();
-        if (from != null) {
-            println();
-            print0(ucase ? "FROM " : "from ");
-            printTableSource(from);
-        }
-
-        SQLExpr where = x.getWhere();
-        if (where != null) {
-            printWhere(where);
-        }
-
-        SQLSelectGroupByClause groupBy = x.getGroupBy();
-        if (groupBy != null) {
-            println();
-            visit(groupBy);
-        }
-
-        SQLOrderBy orderBy = x.getOrderBy();
-        if (orderBy != null) {
-            println();
-            visit(orderBy);
-        }
-
+        printInto(x);
+        printFrom(x);
+        printWhere(x);
+        printGroupBy(x);
+        printOrderBy(x);
         printFetchFirst(x);
+        printAfterFetch(x);
 
-        return false;
-    }
-
-    @Override
-    public boolean visit(SQLServerTop x) {
-        boolean parameterized = this.parameterized;
-        this.parameterized = false;
-
-        print0(ucase ? "TOP " : "top ");
-
-        boolean paren = false;
-
-        if (x.getParent() instanceof SQLServerUpdateStatement || x.getParent() instanceof SQLServerInsertStatement) {
-            paren = true;
-            print('(');
-        }
-
-        x.getExpr().accept(this);
-
-        if (paren) {
-            print(')');
-        }
-
-        if (x.isPercent()) {
-            print0(ucase ? " PERCENT" : " percent");
-        }
-
-        this.parameterized = parameterized;
         return false;
     }
 
@@ -133,6 +77,10 @@ public class SQLServerOutputVisitor extends SQLASTOutputVisitor implements SQLSe
 
     @Override
     public boolean visit(SQLServerInsertStatement x) {
+        if (x.getWith() != null) {
+            x.getWith().accept(this);
+            println();
+        }
         print0(ucase ? "INSERT " : "insert ");
 
         if (x.getTop() != null) {
@@ -180,7 +128,7 @@ public class SQLServerOutputVisitor extends SQLASTOutputVisitor implements SQLSe
     public boolean visit(SQLServerUpdateStatement x) {
         print0(ucase ? "UPDATE " : "update ");
 
-        SQLServerTop top = x.getTop();
+        SQLTop top = x.getTop();
         if (top != null) {
             top.accept(this);
             print(' ');
@@ -582,5 +530,18 @@ public class SQLServerOutputVisitor extends SQLASTOutputVisitor implements SQLSe
         print0(ucase ? "ADD " : "add ");
         printAndAccept(x.getColumns(), ", ");
         return false;
+    }
+
+    @Override
+    protected void printAfterFetch(SQLSelectQueryBlock queryBlock) {
+        if (queryBlock instanceof SQLServerSelectQueryBlock) {
+            SQLServerSelectQueryBlock sqlServerSelectQueryBlock = ((SQLServerSelectQueryBlock) queryBlock);
+            if (!sqlServerSelectQueryBlock.getOptions().isEmpty()) {
+                println();
+                print0(ucase ? "OPTION(" : "option(");
+                printAndAccept(sqlServerSelectQueryBlock.getOptions(), ", ");
+                print0(")");
+            }
+        }
     }
 }

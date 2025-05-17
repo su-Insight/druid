@@ -15,19 +15,16 @@
  */
 package com.alibaba.druid.sql.dialect.mysql.ast.expr;
 
-import com.alibaba.druid.FastsqlException;
 import com.alibaba.druid.sql.ast.expr.SQLCharExpr;
 import com.alibaba.druid.sql.dialect.mysql.visitor.MySqlASTVisitor;
 import com.alibaba.druid.sql.visitor.SQLASTVisitor;
-
-import java.io.IOException;
 
 public class MySqlCharExpr extends SQLCharExpr implements MySqlExpr {
     private String charset;
     private String collate;
 
     private String type;
-
+    protected boolean parenthesized;
     public MySqlCharExpr() {
     }
 
@@ -70,22 +67,28 @@ public class MySqlCharExpr extends SQLCharExpr implements MySqlExpr {
         this.type = type;
     }
 
-    public void output(Appendable buf) {
-        try {
-            if (charset != null) {
-                buf.append(charset);
-                buf.append(' ');
-            }
-            if (super.text != null) {
-                super.output(buf);
-            }
+    @Override
+    public boolean isParenthesized() {
+        return parenthesized;
+    }
 
-            if (collate != null) {
-                buf.append(" COLLATE ");
-                buf.append(collate);
-            }
-        } catch (IOException ex) {
-            throw new FastsqlException("output error", ex);
+    @Override
+    public void setParenthesized(boolean parenthesized) {
+        this.parenthesized = parenthesized;
+    }
+
+    public void output(StringBuilder buf) {
+        if (charset != null) {
+            buf.append(charset);
+            buf.append(' ');
+        }
+        if (super.text != null) {
+            super.output(buf);
+        }
+
+        if (collate != null) {
+            buf.append(" COLLATE ");
+            buf.append(collate);
         }
     }
 
@@ -105,7 +108,7 @@ public class MySqlCharExpr extends SQLCharExpr implements MySqlExpr {
     }
 
     public String toString() {
-        StringBuffer buf = new StringBuffer();
+        StringBuilder buf = new StringBuilder();
         output(buf);
         return buf.toString();
     }

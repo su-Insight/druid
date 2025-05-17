@@ -47,6 +47,10 @@ public class SQLExprUtils {
             return ((SQLPropertyExpr) a).equals((SQLIdentifierExpr) b);
         }
 
+        if (clazz_b == SQLPropertyExpr.class && clazz_a == SQLIdentifierExpr.class) {
+            return ((SQLPropertyExpr) b).equals((SQLIdentifierExpr) a);
+        }
+
         if (clazz_a != clazz_b) {
             return false;
         }
@@ -60,7 +64,6 @@ public class SQLExprUtils {
         if (clazz_a == SQLBinaryOpExpr.class) {
             SQLBinaryOpExpr x_a = (SQLBinaryOpExpr) a;
             SQLBinaryOpExpr x_b = (SQLBinaryOpExpr) b;
-
             return x_a.equals(x_b);
         }
 
@@ -129,7 +132,7 @@ public class SQLExprUtils {
         if (quote == '`') {
             expr = new SQLIdentifierExpr(str);
         } else if (quote == '"') {
-            if (dbType == DbType.oracle || dbType == DbType.presto || dbType == DbType.trino) {
+            if (dbType == DbType.oracle || dbType == DbType.presto || dbType == DbType.trino || dbType == DbType.supersql) {
                 expr = new SQLIdentifierExpr(str);
             } else {
                 expr = new SQLCharExpr(str);

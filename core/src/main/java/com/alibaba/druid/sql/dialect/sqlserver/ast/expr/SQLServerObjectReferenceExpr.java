@@ -15,7 +15,6 @@
  */
 package com.alibaba.druid.sql.dialect.sqlserver.ast.expr;
 
-import com.alibaba.druid.FastsqlException;
 import com.alibaba.druid.sql.ast.SQLExpr;
 import com.alibaba.druid.sql.ast.SQLName;
 import com.alibaba.druid.sql.ast.SQLObject;
@@ -24,9 +23,9 @@ import com.alibaba.druid.sql.ast.expr.SQLPropertyExpr;
 import com.alibaba.druid.sql.ast.statement.SQLColumnDefinition;
 import com.alibaba.druid.sql.dialect.sqlserver.ast.SQLServerObjectImpl;
 import com.alibaba.druid.sql.dialect.sqlserver.visitor.SQLServerASTVisitor;
+import com.alibaba.druid.sql.visitor.SQLASTVisitor;
 import com.alibaba.druid.util.FnvHash;
 
-import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 
@@ -66,37 +65,40 @@ public class SQLServerObjectReferenceExpr extends SQLServerObjectImpl implements
     }
 
     @Override
+    public void accept0(SQLASTVisitor v) {
+        if (v instanceof SQLServerASTVisitor) {
+            accept0((SQLServerASTVisitor) v);
+        }
+    }
+
+    @Override
     public void accept0(SQLServerASTVisitor visitor) {
         visitor.visit(this);
         visitor.endVisit(this);
     }
 
-    public void output(Appendable buf) {
-        try {
-            boolean flag = false;
-            if (server != null) {
-                buf.append(server);
-                flag = true;
-            }
+    public void output(StringBuilder buf) {
+        boolean flag = false;
+        if (server != null) {
+            buf.append(server);
+            flag = true;
+        }
 
-            if (flag) {
-                buf.append('.');
-            }
-            if (database != null) {
-                buf.append(database);
-                flag = true;
-            }
+        if (flag) {
+            buf.append('.');
+        }
+        if (database != null) {
+            buf.append(database);
+            flag = true;
+        }
 
-            if (flag) {
-                buf.append('.');
-            }
+        if (flag) {
+            buf.append('.');
+        }
 
-            if (schema != null) {
-                buf.append(schema);
-                flag = true;
-            }
-        } catch (IOException ex) {
-            throw new FastsqlException("output error", ex);
+        if (schema != null) {
+            buf.append(schema);
+            flag = true;
         }
     }
 

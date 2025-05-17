@@ -43,6 +43,7 @@ public enum Token {
     NULL("NULL"),
     NOT("NOT"),
     DISTINCT("DISTINCT"),
+    DISTINCTROW("DISTINCTROW"),
 
     TABLE("TABLE"),
     TABLESPACE("TABLESPACE"),
@@ -63,9 +64,12 @@ public enum Token {
     UNIQUE("UNIQUE"),
     FOREIGN("FOREIGN"),
     REFERENCES("REFERENCES"),
+    LANGUAGE("LANGUAGE"),
+    PARTIAL("PARTIAL"),
 
     EXPLAIN("EXPLAIN"),
     FOR("FOR"),
+    REVERSE("REVERSE"),
     IF("IF"),
 
     LOCAL("LOCAL"),
@@ -98,6 +102,7 @@ public enum Token {
     THEN("THEN"),
     ELSE("ELSE"),
     ELSIF("ELSIF"),
+    ELSEIF("ELSEIF"),
     END("END"),
     EXISTS("EXISTS"),
     IN("IN"),
@@ -132,7 +137,7 @@ public enum Token {
     REPLACE("REPLACE"),
     PERIOD("PERIOD"),
 
-    BITS,
+    BITS("BITS"),
 
     // MySql procedure add by zz
     WHILE("WHILE"),
@@ -152,6 +157,8 @@ public enum Token {
     DIV("DIV"),
 
     //postgresql
+    GET("GET"),
+    DIAGNOSTICS("DIAGNOSTICS"),
     WINDOW("WINDOW"),
     OFFSET("OFFSET"),
     ROW("ROW"),
@@ -244,11 +251,15 @@ public enum Token {
     ANALYZE("ANALYZE"),
     OPTIMIZE("OPTIMIZE"),
 
+    // bigquery
+    RAISE("RAISE"),
+
     // transact-sql
     TOP("TOP"),
 
     ARRAY("ARRAY"),
     DISTRIBUTE("DISTRIBUTE"),
+    OPTION("OPTION"),
 
     // hive
 
@@ -262,6 +273,7 @@ public enum Token {
     LITERAL_HEX,
     LITERAL_CHARS,
     LITERAL_NCHARS,
+    LITERAL_TEXT_BLOCK,
 
     CODE, // odps
 
@@ -282,6 +294,13 @@ public enum Token {
     SORT,
     LATERAL,
 
+    // clickhouse
+    PREWHERE("PREWHERE"),
+    SETTINGS("SETTINGS"),
+    FINAL("FINAL"),
+    TTL("TTL"),
+    CODEC("CODEC"),
+
     // Teradata
     SEL("SEL"),
     LOCKING("LOCKING"),
@@ -300,8 +319,22 @@ public enum Token {
     UPSERT("UPSERT"), // Phoenix
 
     // StarRocks
-    BIGINT("BIGINT"),
-    BITMAP("BITMAP"),
+    ADD("ADD"),
+    BOTH("BOTH"),
+    FORCE("FORCE"),
+    // Redshift
+    ENCODE("ENCODE"),
+    DISTSTYLE("DISTSTYLE"),
+    AUTO("AUTO"),
+    EVEN("EVEN"),
+    DISTKEY("DISTKEY"),
+    SORTKEY("SORTKEY"),
+    COMPOUND("COMPOUND"),
+    INTERLEAVED("INTERLEAVED"),
+    BACKUP("BACKUP"),
+    TABLET("TABLET"),
+    REPEATABLE("REPEATABLE"),
+    TABLESAMPLE("TABLESAMPLE"),
 
     LPAREN("("),
     RPAREN(")"),
@@ -313,7 +346,7 @@ public enum Token {
     COMMA(","),
     DOT("."),
     DOTDOT(".."),
-    DOTDOTDOT("..,"),
+    DOTDOTDOT("..."),
     EQ("="),
     GT(">"),
     LT("<"),
@@ -328,6 +361,7 @@ public enum Token {
     QUES("?"),
     QUESQUES("??"),
     QUESBAR("?|"),
+    QUESQUESBAR("??|"),
     QUESAMP("?&"),
     COLON(":"),
     COLONCOLON("::"),
@@ -357,7 +391,9 @@ public enum Token {
     CARETEQ("^="),
     PERCENT("%"),
     LTLT("<<"),
+    LTLTLT("<<<"),
     GTGT(">>"),
+    GTGTGT(">>>"),
     MONKEYS_AT("@"),
     MONKEYS_AT_AT("@@"),
     POUND("#"),

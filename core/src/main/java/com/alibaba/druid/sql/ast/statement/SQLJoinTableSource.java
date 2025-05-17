@@ -16,7 +16,6 @@
 package com.alibaba.druid.sql.ast.statement;
 
 import com.alibaba.druid.FastsqlColumnAmbiguousException;
-import com.alibaba.druid.FastsqlException;
 import com.alibaba.druid.sql.SQLUtils;
 import com.alibaba.druid.sql.ast.*;
 import com.alibaba.druid.sql.ast.expr.SQLBinaryOpExpr;
@@ -26,7 +25,6 @@ import com.alibaba.druid.sql.repository.SchemaResolveVisitor;
 import com.alibaba.druid.sql.visitor.SQLASTVisitor;
 import com.alibaba.druid.util.FnvHash;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -57,28 +55,12 @@ public class SQLJoinTableSource extends SQLTableSourceImpl implements SQLReplace
 
     protected void accept0(SQLASTVisitor visitor) {
         if (visitor.visit(this)) {
-            if (left != null) {
-                left.accept(visitor);
-            }
-
-            if (right != null) {
-                right.accept(visitor);
-            }
-
-            if (condition != null) {
-                condition.accept(visitor);
-            }
-
-            for (int i = 0; i < using.size(); i++) {
-                SQLExpr item = using.get(i);
-                if (item != null) {
-                    item.accept(visitor);
-                }
-            }
-
-            if (udj != null) {
-                udj.accept(visitor);
-            }
+            acceptChild(visitor, left);
+            acceptChild(visitor, right);
+            acceptChild(visitor, condition);
+            acceptChild(visitor, using);
+            acceptChild(visitor, udj);
+            super.accept0(visitor);
         }
 
         visitor.endVisit(this);
@@ -222,20 +204,16 @@ public class SQLJoinTableSource extends SQLTableSourceImpl implements SQLReplace
         this.natural = natural;
     }
 
-    public void output(Appendable buf) {
-        try {
-            this.left.output(buf);
-            buf.append(' ');
-            buf.append(JoinType.toString(this.joinType));
-            buf.append(' ');
-            this.right.output(buf);
+    public void output(StringBuilder buf) {
+        this.left.output(buf);
+        buf.append(' ');
+        buf.append(JoinType.toString(this.joinType));
+        buf.append(' ');
+        this.right.output(buf);
 
-            if (this.condition != null) {
-                buf.append(" ON ");
-                this.condition.output(buf);
-            }
-        } catch (IOException ex) {
-            throw new FastsqlException("output error", ex);
+        if (this.condition != null) {
+            buf.append(" ON ");
+            this.condition.output(buf);
         }
     }
 
@@ -290,6 +268,8 @@ public class SQLJoinTableSource extends SQLTableSourceImpl implements SQLReplace
         LEFT_OUTER_JOIN("LEFT JOIN"),
         LEFT_SEMI_JOIN("LEFT SEMI JOIN"),
         LEFT_ANTI_JOIN("LEFT ANTI JOIN"),
+        ARRAY_JOIN("ARRAY JOIN"),
+        LEFT_ARRAY_JOIN("LEFT ARRAY JOIN"),
         RIGHT_OUTER_JOIN("RIGHT JOIN"),
         FULL_OUTER_JOIN("FULL JOIN"),
         STRAIGHT_JOIN("STRAIGHT_JOIN"),
@@ -513,7 +493,7 @@ public class SQLJoinTableSource extends SQLTableSourceImpl implements SQLReplace
         return null;
     }
 
-    public SQLObject resolveColum(long columnNameHash) {
+    public SQLObject resolveColumn(long columnNameHash) {
         if (left != null) {
             SQLObject column = left.resolveColum(columnNameHash);
             if (column != null) {

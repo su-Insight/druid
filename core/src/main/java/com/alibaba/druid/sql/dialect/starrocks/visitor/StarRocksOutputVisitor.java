@@ -1,235 +1,269 @@
 package com.alibaba.druid.sql.dialect.starrocks.visitor;
 
 import com.alibaba.druid.DbType;
+import com.alibaba.druid.sql.ast.DistributedByType;
+import com.alibaba.druid.sql.ast.SQLDataType;
 import com.alibaba.druid.sql.ast.SQLExpr;
-import com.alibaba.druid.sql.ast.SQLName;
-import com.alibaba.druid.sql.ast.SQLObject;
-import com.alibaba.druid.sql.ast.expr.SQLCharExpr;
+import com.alibaba.druid.sql.ast.SQLPartition;
+import com.alibaba.druid.sql.ast.expr.SQLArrayExpr;
+import com.alibaba.druid.sql.ast.expr.SQLIdentifierExpr;
+import com.alibaba.druid.sql.ast.statement.SQLAlterTableAlterColumn;
+import com.alibaba.druid.sql.ast.statement.SQLAssignItem;
+import com.alibaba.druid.sql.ast.statement.SQLColumnConstraint;
 import com.alibaba.druid.sql.ast.statement.SQLColumnDefinition;
 import com.alibaba.druid.sql.ast.statement.SQLCreateTableStatement;
+import com.alibaba.druid.sql.ast.statement.SQLNotNullConstraint;
+import com.alibaba.druid.sql.ast.statement.SQLNullConstraint;
+import com.alibaba.druid.sql.ast.statement.SQLPrimaryKeyImpl;
+import com.alibaba.druid.sql.dialect.starrocks.ast.StarRocksAggregateKey;
+import com.alibaba.druid.sql.dialect.starrocks.ast.StarRocksDuplicateKey;
+import com.alibaba.druid.sql.dialect.starrocks.ast.StarRocksIndexDefinition;
+import com.alibaba.druid.sql.dialect.starrocks.ast.statement.StarRocksCreateResourceStatement;
 import com.alibaba.druid.sql.dialect.starrocks.ast.statement.StarRocksCreateTableStatement;
 import com.alibaba.druid.sql.visitor.SQLASTOutputVisitor;
+import com.alibaba.druid.util.FnvHash;
+import com.alibaba.druid.util.JdbcUtils;
 
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
 
 public class StarRocksOutputVisitor extends SQLASTOutputVisitor implements StarRocksASTVisitor {
     {
-        this.dbType = DbType.starrocks;
         this.shardingSupport = true;
         this.quote = '`';
     }
 
-    public StarRocksOutputVisitor(Appendable appender) {
-        super(appender);
+    public StarRocksOutputVisitor(StringBuilder appender) {
+        super(appender, DbType.starrocks);
     }
 
-    public StarRocksOutputVisitor(Appendable appender, DbType dbType) {
+    public StarRocksOutputVisitor(StringBuilder appender, DbType dbType) {
         super(appender, dbType);
     }
 
-    public StarRocksOutputVisitor(Appendable appender, boolean parameterized) {
-        super(appender, parameterized);
+    public StarRocksOutputVisitor(StringBuilder appender, boolean parameterized) {
+        super(appender, DbType.starrocks, parameterized);
+    }
+
+    @Override
+    protected void printEngine(SQLCreateTableStatement x) {
+        if (x instanceof StarRocksCreateTableStatement) {
+            SQLExpr engine = ((StarRocksCreateTableStatement) x).getEngine();
+            if (engine != null) {
+                print0(ucase ? " ENGINE = " : " engine = ");
+                engine.accept(this);
+            }
+        }
     }
 
     public boolean visit(StarRocksCreateTableStatement x) {
-        super.visit((SQLCreateTableStatement) x);
-
-        SQLName model = x.getModelKey();
-        if (model != null) {
-            println();
-            String modelName = model.getSimpleName().toLowerCase();
-            switch (modelName) {
-                case "duplicate":
-                    print0(ucase ? "DUPLICATE" : "duplicate");
-                    break;
-                case "aggregate":
-                    print0(ucase ? "AGGREGATE" : "aggregate");
-                    break;
-                case "unique":
-                    print0(ucase ? "UNIQUE" : "unique");
-                    break;
-                case "primary":
-                    print0(ucase ? "PRIMARY" : "primary");
-                    break;
-                default:
-                    break;
-            }
-            print(' ');
-            print0(ucase ? "KEY" : "key");
-            if (x.getModelKeyParameters().size() > 0) {
-                for (int i = 0; i < x.getModelKeyParameters().size(); ++i) {
-                    if (i != 0) {
-                        println(", ");
-                    }
-                    x.getModelKeyParameters().get(i).accept(this);
-                }
-            }
-        }
-
-        SQLExpr partitionBy = x.getPartitionBy();
-        if (partitionBy != null) {
-            println();
-            print0(ucase ? "PARTITION BY " : "partition by ");
-            partitionBy.accept(this);
-            println();
-            print0("(");
-            println();
-            if (x.isLessThan()) {
-                Map<SQLExpr, SQLExpr> lessThanMap = x.getLessThanMap();
-                Set<SQLExpr> keySet = lessThanMap.keySet();
-                int size = keySet.size();
-                if (size > 0) {
-                    int i = 0;
-                    for (SQLExpr key : keySet) {
-                        if (i != 0) {
-                            println(", ");
-                        }
-                        SQLObject value = lessThanMap.get(key);
-                        print0(ucase ? "  PARTITION " : "  partition ");
-                        key.accept(this);
-                        print0(ucase ? " VALUES LESS THAN " : " values less than ");
-                        String s = value.toString();
-                        if (s.startsWith("MAXVALUE")) {
-                            value.accept(this);
-                        } else {
-                            print0("(");
-                            value.accept(this);
-                            print0(")");
-                        }
-                        i++;
-                    }
-                }
-            } else if (x.isFixedRange()) {
-                Map<SQLExpr, List<SQLExpr>> fixedRangeMap = x.getFixedRangeMap();
-                Set<SQLExpr> keySet = fixedRangeMap.keySet();
-                int size = keySet.size();
-                if (size > 0) {
-                    int i = 0;
-                    for (SQLExpr key : keySet) {
-                        List<SQLExpr> valueList = fixedRangeMap.get(key);
-                        int listSize = valueList.size();
-
-                        print0(ucase ? "  PARTITION " : "  partition ");
-                        key.accept(this);
-                        print0(ucase ? " VALUES " : " values ");
-                        print0("[");
-
-                        for (int j = 0; j < listSize; ++j) {
-                            SQLExpr sqlExpr = valueList.get(j);
-                            String[] split = sqlExpr.toString().split(",");
-
-                            if (split.length <= 1) {
-                                print0("(");
-                                sqlExpr.accept(this);
-                                print0(")");
-                            } else {
-                                sqlExpr.accept(this);
-                            }
-
-                            if (j != listSize - 1) {
-                                print0(",");
-                            }
-
-                        }
-                        print0(")");
-
-                        if (i != size - 1) {
-                            print0(",");
-                            println();
-                        }
-                        i++;
-
-                    }
-                }
-            } else if (x.isStartEnd()) {
-                if (x.getStart() != null) {
-                    print0(ucase ? "  START " : "  start ");
-                    print0("(");
-                    x.getStart().accept(this);
-                    print0(")");
-                }
-                if (x.getEnd() != null) {
-                    print0(ucase ? "  END " : "  end ");
-                    print0("(");
-                    x.getEnd().accept(this);
-                    print0(")");
-                }
-                if (x.getEvery() != null) {
-                    print0(ucase ? "  EVERY " : "  every ");
-                    print0("(");
-                    x.getEvery().accept(this);
-                    print0(")");
-                }
-
-            }
-            println();
-            print0(")");
-        }
-        println();
-        if (x.getDistributedBy() != null) {
-            print0(ucase ? "DISTRIBUTED BY " : "distributed by ");
-            x.getDistributedBy().accept(this);
-            print0(ucase ? " BUCKETS " : "buckets ");
-            int buckets = x.getBuckets();
-            print0(String.valueOf(buckets));
-        }
-
-        println();
-        int propertiesSize = x.getPropertiesMap().size();
-        int lBracketSize = x.getlBracketPropertiesMap().size();
-        if (propertiesSize > 0 || lBracketSize > 0) {
-            print0(ucase ? "PROPERTIES " : "properties ");
-            print0("(");
-            if (propertiesSize > 0) {
-                Map<SQLCharExpr, SQLCharExpr> propertiesMap = x.getPropertiesMap();
-                Set<SQLCharExpr> keySet = propertiesMap.keySet();
-                int i = 0;
-                for (SQLCharExpr key : keySet) {
-                    println();
-                    print0("  ");
-                    print0(key.getText());
-                    print0(" = ");
-                    print0(propertiesMap.get(key).getText());
-                    if (lBracketSize > 0 || i != keySet.size() - 1) {
-                        print0(",");
-                    }
-                    i++;
-                }
-            }
-
-            if (lBracketSize > 0) {
-                Map<SQLCharExpr, SQLCharExpr> lBracketPropertiesMap = x.getlBracketPropertiesMap();
-                Set<SQLCharExpr> keySet = lBracketPropertiesMap.keySet();
-                int i = 0;
-                for (SQLCharExpr key : keySet) {
-                    println();
-                    print0("  ");
-                    print0("[");
-                    print0(key.getText());
-                    print0(" = ");
-                    print0(lBracketPropertiesMap.get(key).getText());
-                    if (i != keySet.size() - 1) {
-                        print0(",");
-                    }
-                    print0("]");
-                    i++;
-                }
-            }
-            println();
-            print0(")");
-        }
-
+        printCreateTable(x, false);
+        printEngine(x);
+        printUniqueKey(x);
+        printComment(x.getComment());
+        printPartitionBy(x);
+        printDistributedBy(x);
+        printOrderBy(x);
+        printTableOptions(x);
+        printSelectAs(x, true);
         return false;
     }
 
+    @Override
+    public boolean visit(SQLCreateTableStatement x) {
+        if (x instanceof StarRocksCreateTableStatement) {
+            return visit((StarRocksCreateTableStatement) x);
+        } else {
+            return super.visit(x);
+        }
+    }
+    protected void printCreateTable(SQLCreateTableStatement x, boolean printSelect) {
+        print0(ucase ? "CREATE " : "create ");
+        printCreateTableFeatures(x);
+        print0(ucase ? "TABLE " : "table ");
+
+        if (x.isIfNotExists()) {
+            print0(ucase ? "IF NOT EXISTS " : "if not exists ");
+        }
+
+        printTableSourceExpr(
+                x.getTableSource()
+                        .getExpr());
+
+        printCreateTableAfterName(x);
+        printTableElements(x.getTableElementList());
+    }
+    protected void printUniqueKey(SQLCreateTableStatement x) {
+        if (x.getUnique() != null) {
+            println();
+            if (x.getUnique() instanceof StarRocksAggregateKey) {
+                print0(ucase ? "AGGREGATE KEY (" : "aggregate key (");
+            } else if (x.getUnique() instanceof StarRocksDuplicateKey) {
+                print0(ucase ? "DUPLICATE KEY (" : "duplicate key (");
+            } else if (x.getUnique() instanceof SQLPrimaryKeyImpl) {
+                print0(ucase ? "PRIMARY KEY (" : "primary key (");
+            } else {
+                print0(ucase ? "UNIQUE KEY (" : "unique key (");
+            }
+            printAndAccept(x.getUnique().getColumns(), ", ");
+            print0(")");
+        }
+    }
+
+    protected void printDistributedBy(SQLCreateTableStatement x) {
+        if (x instanceof StarRocksCreateTableStatement) {
+            StarRocksCreateTableStatement createTable = (StarRocksCreateTableStatement) x;
+            if (createTable.getDistributedByType() != null) {
+                println();
+                print0(ucase ? "DISTRIBUTED BY " : "distributed by ");
+                DistributedByType distributedByType = createTable.getDistributedByType();
+                if (DistributedByType.Random.equals(distributedByType)) {
+                    print0(ucase ? "RANDOM BUCKETS" : "random buckets");
+                    if (createTable.getBuckets() > 0) {
+                        print0(" ");
+                        print0(String.valueOf(createTable.getBuckets()));
+                    }
+                } else if (DistributedByType.Hash.equals(distributedByType) && !createTable.getDistributedBy().isEmpty()) {
+                    print0(ucase ? "HASH (" : "hash (");
+                    printAndAccept(createTable.getDistributedBy(), ", ");
+                    print0(")");
+                    if (createTable.getBuckets() > 0) {
+                        print0(ucase ? " BUCKETS " : " buckets ");
+                        print0(String.valueOf(createTable.getBuckets()));
+                    }
+                }
+            }
+        }
+    }
+
+    protected void printOrderBy(SQLCreateTableStatement x) {
+        if (x instanceof StarRocksCreateTableStatement) {
+            StarRocksCreateTableStatement createTable = (StarRocksCreateTableStatement) x;
+            printOrderBy(createTable.getOrderBy());
+        }
+    }
+
+    @Override
+    protected void printTableOptionsPrefix(SQLCreateTableStatement x) {
+        println();
+        print0(ucase ? "PROPERTIES (" : "properties (");
+        incrementIndent();
+        println();
+    }
+    @Override
+    protected void printTableOptions(SQLCreateTableStatement statement) {
+        super.printTableOptions(statement);
+        if (statement instanceof StarRocksCreateTableStatement) {
+            StarRocksCreateTableStatement x = (StarRocksCreateTableStatement) statement;
+            if (!x.getBrokerProperties().isEmpty()) {
+                println();
+                print0(ucase ? "BROKER PROPERTIES (" : "broker properties (");
+                incrementIndent();
+                println();
+                int i = 0;
+                for (SQLAssignItem property : x.getBrokerProperties()) {
+                    printTableOption(property.getTarget(), property.getValue(), i);
+                    ++i;
+                }
+                decrementIndent();
+                println();
+                print0(")");
+            }
+        }
+    }
+
+    protected void print(List<? extends SQLExpr> exprList) {
+        int size = exprList.size();
+        if (size == 0) {
+            return;
+        }
+
+        print0(" (");
+
+        this.indentCount++;
+        println();
+        for (int i = 0; i < size; ++i) {
+            SQLExpr element = exprList.get(i);
+
+            if (element instanceof SQLArrayExpr) {
+                SQLArrayExpr array = ((SQLArrayExpr) element);
+                SQLExpr expr = array.getExpr();
+
+                if (expr instanceof SQLIdentifierExpr
+                        && ((SQLIdentifierExpr) expr).nameHashCode64() == FnvHash.Constants.ARRAY
+                        && printNameQuote
+                ) {
+                    print0(((SQLIdentifierExpr) expr).getName());
+                } else if (expr != null) {
+                    expr.accept(this);
+                }
+
+                print('[');
+                printAndAccept(array.getValues(), ", ");
+
+                if (i != size - 1) {
+                    print0(",");
+                }
+
+                print(']');
+            } else {
+                element.accept(this);
+            }
+
+            if (i != size - 1 && !(element instanceof SQLArrayExpr)) {
+                print(',');
+            }
+
+            if (i != size - 1) {
+                println();
+            }
+        }
+        this.indentCount--;
+        println();
+        print(')');
+    }
+
     public boolean visit(SQLColumnDefinition x) {
-        super.visit((SQLColumnDefinition) x);
+        x.getName().accept(this);
+        final SQLDataType dataType = x.getDataType();
+
+        if (dataType != null) {
+            if (JdbcUtils.isPgsqlDbType(dbType) && x.getParent() instanceof SQLAlterTableAlterColumn) {
+                print0(ucase ? " TYPE " : " type ");
+            } else {
+                print(' ');
+            }
+            dataType.accept(this);
+        }
+
         if (x.getAggType() != null) {
+            visitAggType(x);
+        }
+
+        for (SQLColumnConstraint item : x.getConstraints()) {
+            if (item instanceof SQLNullConstraint || item instanceof SQLNotNullConstraint) {
+                print(' ');
+                item.accept(this);
+            }
+        }
+
+        if (x.getDefaultExpr() != null) {
+            visitColumnDefault(x);
+        }
+
+        if (x.isAutoIncrement()) {
+            printAutoIncrement();
+        }
+
+        if (x.getComment() != null) {
+            print0(ucase ? " COMMENT " : " comment ");
+            x.getComment().accept(this);
+        }
+
+        if (x.getAsExpr() != null) {
             print(' ');
-            print0(ucase ? x.getAggType().getText().toUpperCase(Locale.ROOT) : x.getAggType().getText().toLowerCase(Locale.ROOT));
+            print0(ucase ? "AS " : "as ");
+            x.getAsExpr().accept(this);
         }
         if (x.getBitmap() != null) {
             print(' ');
@@ -242,5 +276,55 @@ public class StarRocksOutputVisitor extends SQLASTOutputVisitor implements StarR
             x.getIndexComment().accept(this);
         }
         return false;
+    }
+
+    public boolean visit(StarRocksCreateResourceStatement x) {
+        print0(ucase ? "CREATE " : "create ");
+        if (x.isExternal()) {
+            print0(ucase ? "EXTERNAL " : "external ");
+        }
+
+        print0(ucase ? "RESOURCE " : "resource ");
+        x.getName().accept(this);
+        println();
+
+        print0(ucase ? "PROPERTIES" : "properties");
+        print(x.getProperties());
+        return false;
+    }
+
+    public boolean visit(StarRocksIndexDefinition x) {
+        print0(ucase ? "INDEX " : "index ");
+        x.getIndexName().accept(this);
+        print('(');
+        printAndAccept(x.getColumns(), ", ");
+        print(')');
+        if (x.isUsingBitmap()) {
+            print0(ucase ? " USING BITMAP" : " using bitmap");
+        }
+        if (x.getComment() != null) {
+            print0(ucase ? " COMMENT " : " comment ");
+            x.getComment().accept(this);
+        }
+        return false;
+    }
+
+    @Override
+    protected void printSQLPartitions(List<SQLPartition> partitions) {
+        int partitionsSize = partitions.size();
+        print0(" (");
+        if (partitionsSize > 0) {
+            this.indentCount++;
+            for (int i = 0; i < partitionsSize; ++i) {
+                println();
+                partitions.get(i).accept(this);
+                if (i != partitionsSize - 1) {
+                    print0(",");
+                }
+            }
+            this.indentCount--;
+            println();
+        }
+        print(')');
     }
 }

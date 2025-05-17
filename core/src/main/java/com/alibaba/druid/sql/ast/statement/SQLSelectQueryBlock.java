@@ -30,10 +30,15 @@ import java.util.List;
 import java.util.TreeSet;
 
 public class SQLSelectQueryBlock extends SQLSelectQueryBase implements SQLReplaceable, SQLDbTypedObject {
+    // for bigquery
+    protected SQLWithSubqueryClause with;
+
     protected int distionOption;
     protected final List<SQLSelectItem> selectList = new ArrayList<SQLSelectItem>();
 
     protected SQLTableSource from;
+    protected List<String> commentsAfterFrom;
+
     protected SQLExprTableSource into;
     protected SQLExpr where;
 
@@ -351,9 +356,6 @@ public class SQLSelectQueryBlock extends SQLSelectQueryBase implements SQLReplac
         }
 
         SQLExpr expr = orderByItem.getExpr();
-        if (expr == null && expr instanceof SQLIntegerExpr) {
-            return false;
-        }
 
         int index = 0;
         for (int i = 0; i < selectList.size(); i++) {
@@ -429,6 +431,16 @@ public class SQLSelectQueryBlock extends SQLSelectQueryBase implements SQLReplac
         return this.distionOption == SQLSetQuantifier.DISTINCT;
     }
 
+    public void setDistinct(boolean distinct) {
+        if (distinct) {
+            this.distionOption = SQLSetQuantifier.DISTINCT;
+        } else {
+            if (this.distionOption == SQLSetQuantifier.DISTINCT) {
+                this.distionOption = 0;
+            }
+        }
+    }
+
     public List<SQLSelectItem> getSelectList() {
         return this.selectList;
     }
@@ -489,7 +501,6 @@ public class SQLSelectQueryBlock extends SQLSelectQueryBase implements SQLReplac
         }
         this.from = from;
     }
-
     public void setFrom(SQLSelectQueryBlock queryBlock, String alias) {
         if (queryBlock == null) {
             this.from = null;
@@ -497,6 +508,14 @@ public class SQLSelectQueryBlock extends SQLSelectQueryBase implements SQLReplac
         }
 
         this.setFrom(new SQLSelect(queryBlock), alias);
+    }
+
+    public List<String> getCommentsAfterFrom() {
+        return commentsAfterFrom;
+    }
+
+    public void setCommentsAfterFrom(List<String> commentsAfterFrom) {
+        this.commentsAfterFrom = commentsAfterFrom;
     }
 
     public void setFrom(SQLSelect select, String alias) {
@@ -711,71 +730,83 @@ public class SQLSelectQueryBlock extends SQLSelectQueryBase implements SQLReplac
     @Override
     protected void accept0(SQLASTVisitor visitor) {
         if (visitor.visit(this)) {
-            for (int i = 0; i < this.selectList.size(); i++) {
-                SQLSelectItem item = this.selectList.get(i);
-                if (item != null) {
-                    item.accept(visitor);
-                }
-            }
-
-            if (this.from != null) {
-                this.from.accept(visitor);
-            }
-
-            if (this.windows != null) {
-                for (int i = 0; i < windows.size(); i++) {
-                    SQLWindow item = windows.get(i);
-                    item.accept(visitor);
-                }
-            }
-
-            if (this.into != null) {
-                this.into.accept(visitor);
-            }
-
-            if (this.where != null) {
-                this.where.accept(visitor);
-            }
-
-            if (this.startWith != null) {
-                this.startWith.accept(visitor);
-            }
-
-            if (this.connectBy != null) {
-                this.connectBy.accept(visitor);
-            }
-
-            if (this.groupBy != null) {
-                this.groupBy.accept(visitor);
-            }
-
-            if (this.orderBy != null) {
-                this.orderBy.accept(visitor);
-            }
-
-            if (this.distributeBy != null) {
-                for (int i = 0; i < distributeBy.size(); i++) {
-                    SQLSelectOrderByItem item = distributeBy.get(i);
-                    item.accept(visitor);
-                }
-            }
-
-            if (this.sortBy != null) {
-                for (int i = 0; i < sortBy.size(); i++) {
-                    SQLSelectOrderByItem item = sortBy.get(i);
-                    item.accept(visitor);
-                }
-            }
-
-            if (this.waitTime != null) {
-                this.waitTime.accept(visitor);
-            }
-
-            if (this.limit != null) {
-                this.limit.accept(visitor);
-            }
+            acceptChild(visitor);
         }
         visitor.endVisit(this);
+    }
+
+    protected void acceptChild(SQLASTVisitor v) {
+        if (with != null) {
+            with.accept(v);
+        }
+
+        for (int i = 0; i < this.selectList.size(); i++) {
+            SQLSelectItem item = this.selectList.get(i);
+            if (item != null) {
+                item.accept(v);
+            }
+        }
+
+        if (this.from != null) {
+            this.from.accept(v);
+        }
+
+        if (this.windows != null) {
+            for (int i = 0; i < windows.size(); i++) {
+                SQLWindow item = windows.get(i);
+                item.accept(v);
+            }
+        }
+
+        if (this.into != null) {
+            this.into.accept(v);
+        }
+
+        if (this.where != null) {
+            this.where.accept(v);
+        }
+
+        if (this.startWith != null) {
+            this.startWith.accept(v);
+        }
+
+        if (this.connectBy != null) {
+            this.connectBy.accept(v);
+        }
+
+        if (this.groupBy != null) {
+            this.groupBy.accept(v);
+        }
+
+        if (this.qualify != null) {
+            this.qualify.accept(v);
+        }
+
+        if (this.orderBy != null) {
+            this.orderBy.accept(v);
+        }
+
+        if (this.distributeBy != null) {
+            for (int i = 0; i < distributeBy.size(); i++) {
+                SQLSelectOrderByItem item = distributeBy.get(i);
+                item.accept(v);
+            }
+        }
+
+        if (this.sortBy != null) {
+            for (int i = 0; i < sortBy.size(); i++) {
+                SQLSelectOrderByItem item = sortBy.get(i);
+                item.accept(v);
+            }
+        }
+
+        if (this.waitTime != null) {
+            this.waitTime.accept(v);
+        }
+
+        if (this.limit != null) {
+            this.limit.accept(v);
+        }
     }
 
     @Override
@@ -1003,6 +1034,10 @@ public class SQLSelectQueryBlock extends SQLSelectQueryBase implements SQLReplac
         x.parenthesized = parenthesized;
         x.distionOption = distionOption;
 
+        if (with != null) {
+            x.setWith(with.clone());
+        }
+
         if (x.selectList.size() > 0) {
             x.selectList.clear();
         }
@@ -1139,21 +1174,74 @@ public class SQLSelectQueryBlock extends SQLSelectQueryBase implements SQLReplac
 
     @Override
     public boolean replace(SQLExpr expr, SQLExpr target) {
+        boolean isReplaced = false;
         if (where == expr) {
             setWhere(target);
-            return true;
+            isReplaced = true;
         }
 
         if (startWith == expr) {
             setStartWith(target);
-            return true;
+            isReplaced = true;
         }
 
         if (connectBy == expr) {
             setConnectBy(target);
-            return true;
+            isReplaced = true;
         }
-        return false;
+
+        if (with == expr) {
+            setWith((SQLWithSubqueryClause) target);
+            isReplaced = true;
+        }
+
+        if (from == expr) {
+            setFrom((SQLTableSource) target);
+            isReplaced = true;
+        }
+
+        if (into == expr && target instanceof SQLExprTableSource) {
+            setInto((SQLExprTableSource) target);
+            isReplaced = true;
+        }
+
+        if (qualify == expr) {
+            setQualify(target);
+            isReplaced = true;
+        }
+
+        if (waitTime == expr) {
+            setWaitTime(target);
+            isReplaced = true;
+        }
+
+        if (expr instanceof SQLSelectItem && target instanceof SQLSelectItem) {
+            isReplaced = isReplaced || replaceList(selectList, (SQLSelectItem) expr, (SQLSelectItem) target);
+        }
+
+        if (expr instanceof SQLSelectOrderByItem && target instanceof SQLSelectOrderByItem) {
+            isReplaced = isReplaced || replaceList(distributeBy, (SQLSelectOrderByItem) expr, (SQLSelectOrderByItem) target)
+                || replaceList(sortBy, (SQLSelectOrderByItem) expr, (SQLSelectOrderByItem) target)
+                || replaceList(clusterBy, (SQLSelectOrderByItem) expr, (SQLSelectOrderByItem) target);
+        }
+
+        isReplaced = isReplaced || replaceList(forUpdateOf, expr, target);
+        return isReplaced;
+    }
+
+    protected <T extends SQLObject> boolean replaceList(List<T> exprList, T expr, T target) {
+        boolean isReplaced = false;
+        if (exprList == null) {
+            return isReplaced;
+        }
+        for (int i = 0; i < exprList.size(); i++) {
+            if (exprList.get(i) == expr) {
+                target.setParent(this);
+                exprList.set(i, target);
+                isReplaced = true;
+            }
+        }
+        return isReplaced;
     }
 
     public SQLSelectItem findSelectItem(String ident) {
@@ -1163,6 +1251,61 @@ public class SQLSelectQueryBlock extends SQLSelectQueryBase implements SQLReplac
 
         long hash = FnvHash.hashCode64(ident);
         return findSelectItem(hash);
+    }
+
+    public SQLDataType findSelectItemAndComputeDataType(String ident) {
+        if (ident == null) {
+            return null;
+        }
+
+        long hash = FnvHash.hashCode64(ident);
+        return findSelectItemAndComputeDataType(hash);
+    }
+
+    public SQLDataType findSelectItemAndComputeDataType(long identHash) {
+        SQLSelectItem selectItem = findSelectItem(identHash);
+        if (selectItem != null) {
+            return selectItem.computeDataType();
+        }
+
+        if (hasAllColumnSelectItem()) {
+            if (from instanceof SQLSubqueryTableSource) {
+                SQLSelectQueryBlock firstQueryBlock = ((SQLSubqueryTableSource) from).getSelect().getFirstQueryBlock();
+                if (firstQueryBlock != null) {
+                    return firstQueryBlock.findSelectItemAndComputeDataType(identHash);
+                }
+            } else if (from instanceof SQLExprTableSource
+                    && ((SQLExprTableSource) from).getExpr() instanceof SQLIdentifierExpr
+            ) {
+                for (SQLObject parent = this.parent; parent != null; parent = parent.getParent()) {
+                    if (parent instanceof SQLSelect) {
+                        SQLWithSubqueryClause.Entry queryEntry = ((SQLSelect) parent).findWithSubQueryEntry(((SQLIdentifierExpr) ((SQLExprTableSource) from).getExpr()).getName());
+                        if (queryEntry != null) {
+                            return queryEntry.getSubQuery().findSelectItemAndComputeDataType(identHash);
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    public boolean hasAllColumnSelectItem() {
+        for (SQLSelectItem selectItem : selectList) {
+            if (selectItem.getExpr() instanceof SQLAllColumnExpr) {
+                SQLAllColumnExpr expr = (SQLAllColumnExpr) selectItem.getExpr();
+                SQLExpr owner = expr.getOwner();
+                if (owner == null) {
+                    return true;
+                }
+                if (owner instanceof SQLIdentifierExpr
+                        && from != null
+                        && ((SQLIdentifierExpr) owner).getName().equals(from.computeAlias())) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     public SQLSelectItem findSelectItem(long identHash) {
@@ -1562,7 +1705,17 @@ public class SQLSelectQueryBlock extends SQLSelectQueryBase implements SQLReplac
                 }
             }
         }
-
         return removeCount > 0;
+    }
+
+    public SQLWithSubqueryClause getWith() {
+        return with;
+    }
+
+    public void setWith(SQLWithSubqueryClause x) {
+        if (x != null) {
+            x.setParent(this);
+        }
+        this.with = x;
     }
 }

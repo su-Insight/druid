@@ -31,8 +31,8 @@ public class OracleSysdateTest extends OracleTest {
     public void test_0() throws Exception {
         OracleSysdateExpr sysdate = new OracleSysdateExpr();
 
-        StringBuffer buf = new StringBuffer();
-        SQLASTOutputVisitor v = new SQLASTOutputVisitor(buf);
+        StringBuilder buf = new StringBuilder();
+        SQLASTOutputVisitor v = new SQLASTOutputVisitor(buf, DbType.oracle);
         sysdate.accept(v);
         assertEquals("SYSDATE", buf.toString());
     }

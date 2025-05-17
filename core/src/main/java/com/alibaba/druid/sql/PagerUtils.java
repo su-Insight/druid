@@ -28,7 +28,6 @@ import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleSelectQueryBlock;
 import com.alibaba.druid.sql.dialect.oracle.visitor.OracleASTVisitorAdapter;
 import com.alibaba.druid.sql.dialect.postgresql.ast.stmt.PGSelectQueryBlock;
 import com.alibaba.druid.sql.dialect.sqlserver.ast.SQLServerSelectQueryBlock;
-import com.alibaba.druid.sql.dialect.sqlserver.ast.SQLServerTop;
 import com.alibaba.druid.util.JdbcUtils;
 
 import java.util.List;
@@ -119,7 +118,7 @@ public class PagerUtils {
     private static boolean limitUnion(SQLUnionQuery queryBlock, DbType dbType, int offset, int count, boolean check) {
         SQLLimit limit = queryBlock.getLimit();
         if (limit != null) {
-            if (offset > 0) {
+            if (offset >= 0) {
                 limit.setOffset(new SQLIntegerExpr(offset));
             }
 
@@ -159,8 +158,10 @@ public class PagerUtils {
             case mariadb:
             case tidb:
             case h2:
+            case lealone:
             case ads:
             case clickhouse:
+            case polardbx:
                 return limitMySqlQueryBlock(queryBlock, dbType, offset, count, check);
             case postgresql:
             case greenplum:
@@ -168,6 +169,7 @@ public class PagerUtils {
             case hive:
             case odps:
             case presto:
+            case supersql:
                 return limitSQLQueryBlock(queryBlock, dbType, offset, count, check);
             case oracle:
             case oceanbase_oracle:
@@ -184,7 +186,7 @@ public class PagerUtils {
                                               boolean check) {
         SQLLimit limit = queryBlock.getLimit();
         if (limit != null) {
-            if (offset > 0) {
+            if (offset >= 0) {
                 limit.setOffset(new SQLIntegerExpr(offset));
             }
 
@@ -303,14 +305,14 @@ public class PagerUtils {
         if (query instanceof SQLSelectQueryBlock) {
             SQLServerSelectQueryBlock queryBlock = (SQLServerSelectQueryBlock) query;
             if (offset <= 0) {
-                SQLServerTop top = queryBlock.getTop();
+                SQLTop top = queryBlock.getTop();
                 if (check && top != null && !top.isPercent() && top.getExpr() instanceof SQLNumericLiteralExpr) {
                     int rowCount = ((SQLNumericLiteralExpr) top.getExpr()).getNumber().intValue();
                     if (rowCount <= count) {
                         return false;
                     }
                 }
-                queryBlock.setTop(new SQLServerTop(new SQLNumberExpr(count)));
+                queryBlock.setTop(new SQLTop(new SQLNumberExpr(count)));
                 return true;
             }
 
@@ -344,7 +346,7 @@ public class PagerUtils {
         countQueryBlock.setFrom(new SQLSubqueryTableSource(select.clone(), "XX"));
 
         if (offset <= 0) {
-            countQueryBlock.setTop(new SQLServerTop(new SQLNumberExpr(count)));
+            countQueryBlock.setTop(new SQLTop(new SQLNumberExpr(count)));
 
             select.setQuery(countQueryBlock);
             return true;
@@ -447,7 +449,7 @@ public class PagerUtils {
                                                 boolean check) {
         SQLLimit limit = queryBlock.getLimit();
         if (limit != null) {
-            if (offset > 0) {
+            if (offset >= 0) {
                 limit.setOffset(new SQLIntegerExpr(offset));
             }
 
@@ -548,6 +550,7 @@ public class PagerUtils {
             case mariadb:
             case tidb:
             case ads:
+            case polardbx:
                 return new MySqlSelectQueryBlock();
             case oracle:
                 return new OracleSelectQueryBlock();
@@ -596,9 +599,11 @@ public class PagerUtils {
     }
 
     /**
-     * @param sql
-     * @param dbType
-     * @return if not exists limit, return -1;
+     * Retrieves the limit value from the provided SQL query string based on the specified database type.
+     *
+     * @param sql    the SQL query string
+     * @param dbType the database type for parsing the SQL query
+     * @return the limit value extracted from the SQL query, or -1 if the query does not have a valid limit clause
      */
     public static int getLimit(String sql, DbType dbType) {
         List<SQLStatement> stmtList = SQLUtils.parseStatements(sql, dbType);

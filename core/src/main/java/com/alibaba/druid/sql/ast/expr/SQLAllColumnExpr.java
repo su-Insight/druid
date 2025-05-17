@@ -15,13 +15,12 @@
  */
 package com.alibaba.druid.sql.ast.expr;
 
-import com.alibaba.druid.FastsqlException;
 import com.alibaba.druid.sql.ast.SQLExpr;
 import com.alibaba.druid.sql.ast.SQLExprImpl;
 import com.alibaba.druid.sql.ast.statement.SQLTableSource;
 import com.alibaba.druid.sql.visitor.SQLASTVisitor;
 
-import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -30,16 +29,17 @@ public final class SQLAllColumnExpr extends SQLExprImpl {
 
     private SQLExpr owner;
     private List<SQLExpr> except;
+    private final List<SQLAliasedExpr> replace = new ArrayList<SQLAliasedExpr>();
 
     public SQLAllColumnExpr() {
     }
 
-    public void output(Appendable buf) {
-        try {
-            buf.append('*');
-        } catch (IOException e) {
-            throw new FastsqlException("output error", e);
+    public void output(StringBuilder buf) {
+        if (owner != null) {
+            owner.output(buf);
+            buf.append('.');
         }
+        buf.append('*');
     }
 
     public SQLExpr getOwner() {
@@ -55,6 +55,10 @@ public final class SQLAllColumnExpr extends SQLExprImpl {
 
     public List<SQLExpr> getExcept() {
         return except;
+    }
+
+    public List<SQLAliasedExpr> getReplace() {
+        return replace;
     }
 
     public void setExcept(List<SQLExpr> except) {
