@@ -17,6 +17,7 @@ package com.alibaba.druid.filter;
 
 import com.alibaba.druid.pool.DruidDataSource;
 import com.alibaba.druid.pool.DruidPooledConnection;
+import com.alibaba.druid.pool.DruidStatementConnection;
 import com.alibaba.druid.proxy.jdbc.*;
 
 import java.io.InputStream;
@@ -39,15 +40,28 @@ public class FilterChainImpl implements FilterChain {
 
     private final int filterSize;
 
+    private final Filter[] filters;
+
     public FilterChainImpl(DataSourceProxy dataSource) {
-        this.dataSource = dataSource;
-        this.filterSize = getFilters().size();
+        this(dataSource, 0);
     }
 
     public FilterChainImpl(DataSourceProxy dataSource, int pos) {
+        this(dataSource, pos, null);
+    }
+
+    public FilterChainImpl(DataSourceProxy dataSource, List<Filter> filterList) {
+        this(dataSource, 0, filterList);
+    }
+
+    public FilterChainImpl(DataSourceProxy dataSource, int pos, List<Filter> filterList) {
         this.dataSource = dataSource;
         this.pos = pos;
-        this.filterSize = getFilters().size();
+        if (filterList == null) {
+            filterList = dataSource.getProxyFilters();
+        }
+        this.filterSize = filterList.size();
+        this.filters = filterList.toArray(new Filter[filterSize]);
     }
 
     public int getFilterSize() {
@@ -78,6 +92,12 @@ public class FilterChainImpl implements FilterChain {
                     .isWrapperFor(this, wrapper, iface);
         }
 
+        if (wrapper instanceof DruidStatementConnection) {
+            if (iface.isInstance(((DruidStatementConnection) wrapper).getConnection())) {
+                return true;
+            }
+        }
+
         // // if driver is for jdbc 3.0
         if (iface.isInstance(wrapper)) {
             return true;
@@ -96,6 +116,13 @@ public class FilterChainImpl implements FilterChain {
 
         if (iface == null) {
             return null;
+        }
+
+        if (wrapper instanceof DruidStatementConnection) {
+            Connection conn = ((DruidStatementConnection) wrapper).getConnection();
+            if (iface.isAssignableFrom(conn.getClass())) {
+                return (T) conn;
+            }
         }
 
         // if driver is for jdbc 3.0
@@ -121,7 +148,9 @@ public class FilterChainImpl implements FilterChain {
             return null;
         }
 
-        return new ConnectionProxyImpl(dataSource, nativeConnection, info, dataSource.createConnectionId());
+        Statement stmt = nativeConnection.createStatement();
+        Connection conn = new DruidStatementConnection(nativeConnection, stmt);
+        return new ConnectionProxyImpl(dataSource, conn, info, dataSource.createConnectionId());
     }
 
     @Override
@@ -451,8 +480,7 @@ public class FilterChainImpl implements FilterChain {
     }
 
     private Filter nextFilter() {
-        return getFilters()
-                .get(pos++);
+        return this.filters[pos++];
     }
 
     @Override
