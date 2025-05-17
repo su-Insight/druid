@@ -4926,11 +4926,9 @@ public class SQLStatementParser extends SQLParser {
 
                 if (lexer.identifierEquals("FORMAT")) {
                     lexer.nextToken();
-                    String type = "FORMAT " + lexer.stringVal;
                     lexer.nextToken();
                 } else if (lexer.identifierEquals("TYPE")) {
                     lexer.nextToken();
-                    String type = "TYPE " + lexer.stringVal;
                     lexer.nextToken();
                 }
 
@@ -5110,9 +5108,10 @@ public class SQLStatementParser extends SQLParser {
     */
 
     /**
-     * parse cursor open statement
+     * Parses the SQL OPEN statement and returns the corresponding SQLOpenStatement object.
      *
-     * @return
+     * @return the parsed SQLOpenStatement object representing the SQL OPEN statement
+     * @throws ParserException if an error occurs during parsing
      */
     public SQLOpenStatement parseOpen() {
         SQLOpenStatement stmt = new SQLOpenStatement();
