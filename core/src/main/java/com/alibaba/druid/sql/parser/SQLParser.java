@@ -555,14 +555,20 @@ public class SQLParser {
                     }
                     break;
                 }
+                case CLOSE:
+                case SEQUENCE:
+                    if (dbType == DbType.mysql || dbType == DbType.odps || dbType == DbType.hive) {
+                        alias = lexer.stringVal();
+                        lexer.nextToken();
+                        break;
+                    }
+                    break;
                 case CHECK:
                 case INDEX:
                 case ALL:
                 case INNER:
-                case CLOSE:
                 case VALUES:
                 case SHOW:
-                case SEQUENCE:
                 case TO:
                 case REFERENCES:
                 case LIKE:
@@ -770,7 +776,7 @@ public class SQLParser {
                     return alias;
                 case GROUP:
                 case ORDER:
-                    if (dbType == DbType.odps || dbType == DbType.hive) {
+                    {
                         Lexer.SavePoint mark = lexer.mark();
                         alias = lexer.stringVal();
                         lexer.nextToken();
@@ -778,7 +784,6 @@ public class SQLParser {
                             lexer.reset(mark);
                             alias = null;
                         }
-                        break;
                     }
                     break;
                 case QUES:
