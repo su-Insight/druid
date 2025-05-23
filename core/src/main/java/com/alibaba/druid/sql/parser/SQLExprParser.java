@@ -21,6 +21,7 @@ import com.alibaba.druid.sql.ast.*;
 import com.alibaba.druid.sql.ast.expr.*;
 import com.alibaba.druid.sql.ast.statement.*;
 import com.alibaba.druid.sql.dialect.mysql.ast.expr.MySqlCharExpr;
+import com.alibaba.druid.sql.dialect.mysql.parser.MySqlCreateTableParser;
 import com.alibaba.druid.sql.dialect.oracle.ast.expr.OracleArgumentExpr;
 import com.alibaba.druid.sql.dialect.postgresql.ast.expr.PGTypeCastExpr;
 import com.alibaba.druid.sql.parser.Lexer.SavePoint;
@@ -225,6 +226,13 @@ public class SQLExprParser extends SQLParser {
                 lexer.nextToken();
                 SQLExpr rightExp = primary();
                 expr = new SQLBinaryOpExpr(expr, SQLBinaryOperator.QuesBar, rightExp, dbType);
+                expr = bitXorRest(expr);
+                break;
+            }
+            case QUESQUESBAR: {
+                lexer.nextToken();
+                SQLExpr rightExp = primary();
+                expr = new SQLBinaryOpExpr(expr, SQLBinaryOperator.QuesQuesBar, rightExp, dbType);
                 expr = bitXorRest(expr);
                 break;
             }
@@ -1861,6 +1869,10 @@ public class SQLExprParser extends SQLParser {
         }
 
         Token token = lexer.token;
+        if ("XMLSERIALIZE".equals(methodName) && lexer.identifierEquals("CONTENT")) {
+            SQLExpr contentExpr = expr();
+            methodInvokeExpr.setContent(contentExpr);
+        }
         if (token != Token.RPAREN && token != Token.FROM) {
             exprList(methodInvokeExpr.getArguments(), methodInvokeExpr);
             if (lexer.token == Token.RPAREN) {
@@ -1943,6 +1955,11 @@ public class SQLExprParser extends SQLParser {
             }
         }
 
+        if (lexer.token == Token.AS || lexer.identifierEquals(FnvHash.Constants.AS)) {
+            lexer.nextToken();
+            final SQLExpr as = this.primary();
+            methodInvokeExpr.setAs(as);
+        }
         SQLAggregateExpr aggregateExpr = null;
         if (lexer.token == Token.ORDER) {
             lexer.nextToken();
@@ -5646,7 +5663,10 @@ public class SQLExprParser extends SQLParser {
                             break _opts;
                         }
                         break;
-
+                    case PARTITION:
+                        SQLPartitionBy partitionBy = new MySqlCreateTableParser(this).parsePartitionBy();
+                        indexDefinition.setPartitioning(partitionBy);
+                        break;
                     default:
                         break _opts;
                 }
