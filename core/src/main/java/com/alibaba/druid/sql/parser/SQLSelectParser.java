@@ -195,6 +195,7 @@ public class SQLSelectParser extends SQLParser {
 
                     paren = lexer.token == Token.LPAREN;
                     SQLSelectQuery r = this.query(paren ? null : union, false);
+                    r.setParenthesized(paren);
                     union.addRelation(r);
                     right = r;
                 }
@@ -411,6 +412,7 @@ public class SQLSelectParser extends SQLParser {
 
             SQLSelectQuery select = query();
             accept(Token.RPAREN);
+            select.setParenthesized(true);
 
             return queryRest(select, acceptUnion);
         }
@@ -661,6 +663,16 @@ public class SQLSelectParser extends SQLParser {
                     lexer.nextToken();
                 } else {
                     identExpr = new SQLIdentifierExpr(ident, hash_lower);
+                }
+            } else if (lexer.identifierEquals("COLLATE")) {
+                acceptIdentifier("COLLATE");
+                String collateValue = lexer.stringVal();
+                if (lexer.token == Token.IDENTIFIER || lexer.token == Token.LITERAL_ALIAS || lexer.token == Token.LITERAL_CHARS) {
+                    identExpr = new SQLIdentifierExpr(ident);
+                    ((SQLIdentifierExpr) identExpr).setCollate(collateValue);
+                    lexer.nextToken();
+                } else {
+                    throw new ParserException("syntax error. " + lexer.info());
                 }
             } else {
                 identExpr = new SQLIdentifierExpr(ident, hash_lower);
@@ -1127,7 +1139,7 @@ public class SQLSelectParser extends SQLParser {
                 if (query instanceof SQLUnionQuery) {
                     tableSource = new SQLUnionQueryTableSource((SQLUnionQuery) query);
                 } else {
-                    tableSource = new SQLSubqueryTableSource(select);
+                    tableSource = SQLSubqueryTableSource.fixParenthesized(new SQLSubqueryTableSource(select));
                 }
             } else if (lexer.token == Token.LPAREN) {
                 tableSource = parseTableSource();
@@ -1594,7 +1606,7 @@ public class SQLSelectParser extends SQLParser {
                         || (lexer.token == Token.WITH && dbType == DbType.mysql)
                         || (lexer.token == Token.FROM && (dbType == DbType.odps || dbType == DbType.hive))) {
                     SQLSelect select = this.select();
-                    rightTableSource = new SQLSubqueryTableSource(select);
+                    rightTableSource = SQLSubqueryTableSource.fixParenthesized(new SQLSubqueryTableSource(select));
                 } else {
                     rightTableSource = this.parseTableSource();
                 }

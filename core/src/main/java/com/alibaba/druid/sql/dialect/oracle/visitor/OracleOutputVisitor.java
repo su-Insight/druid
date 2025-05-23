@@ -172,15 +172,11 @@ public class OracleOutputVisitor extends SQLASTOutputVisitor implements OracleAS
 
     public boolean visit(OracleIntervalExpr x) {
         SQLExpr value = x.getValue();
-        if (value instanceof SQLLiteralExpr || value instanceof SQLVariantRefExpr) {
+        if (x.getValue() instanceof SQLLiteralExpr || x.getValue() instanceof SQLVariantRefExpr) {
             print0(ucase ? "INTERVAL " : "interval ");
-            value.accept(this);
-            print(' ');
-        } else {
-            print('(');
-            value.accept(this);
-            print0(") ");
         }
+        x.getValue().accept(this);
+        print(' ');
 
         print0(x.getType().name());
 
@@ -350,7 +346,9 @@ public class OracleOutputVisitor extends SQLASTOutputVisitor implements OracleAS
         if (isPrettyFormat() && x.hasBeforeComment()) {
             printlnComments(x.getBeforeCommentsDirect());
         }
-
+        if (x.isParenthesized()) {
+            print('(');
+        }
         print0(ucase ? "SELECT " : "select ");
 
         if (x.getHintsSize() > 0) {
@@ -428,6 +426,9 @@ public class OracleOutputVisitor extends SQLASTOutputVisitor implements OracleAS
             }
         }
 
+        if (x.isParenthesized()) {
+            print(')');
+        }
         return false;
     }
 
