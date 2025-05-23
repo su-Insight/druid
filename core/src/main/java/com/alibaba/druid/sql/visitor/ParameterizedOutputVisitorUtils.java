@@ -396,7 +396,7 @@ public class ParameterizedOutputVisitorUtils {
         }
     }
 
-    public static ParameterizedVisitor createParameterizedOutputVisitor(Appendable out, DbType dbType) {
+    public static ParameterizedVisitor createParameterizedOutputVisitor(StringBuilder out, DbType dbType) {
         if (dbType == null) {
             dbType = DbType.other;
         }
@@ -413,6 +413,7 @@ public class ParameterizedOutputVisitorUtils {
             case h2:
                 return new H2OutputVisitor(out, true);
             case postgresql:
+            case greenplum:
             case edb:
                 return new PGOutputVisitor(out, true);
             case sqlserver:
