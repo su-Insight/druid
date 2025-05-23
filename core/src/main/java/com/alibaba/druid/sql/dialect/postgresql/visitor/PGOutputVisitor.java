@@ -547,7 +547,17 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
 
     @Override
     public boolean visit(PGStartTransactionStatement x) {
+        if (x.isUseBegin()) {
+            print0(ucase ? "BFGIN" : "begin");
+            return false;
+        }
         print0(ucase ? "START TRANSACTION" : "start transaction");
+        return false;
+    }
+
+    @Override
+    public boolean visit(PGEndTransactionStatement x) {
+        print0(ucase ? "END" : "end");
         return false;
     }
 
@@ -2514,6 +2524,88 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
         }
         printChars(x.getText());
 
+        return false;
+    }
+
+    @Override
+    public boolean visit(PGAnalyzeStatement x) {
+        print0(ucase ? "ANALYZE " : "analyze");
+        if (x.isVerbose()) {
+            print0(ucase ? "VERBOSE " : "verbose ");
+        }
+        if (x.isSkipLocked()) {
+            print0(ucase ? "SKIP_LOCKED " : "skip_locked ");
+        }
+        printAndAccept(x.getTableSources(), ", ");
+        return false;
+    }
+
+    @Override
+    public boolean visit(PGVacuumStatement x) {
+        print0(ucase ? "VACUUM " : "vacuum");
+        if (x.isFull()) {
+            print0(ucase ? "FULL " : "full ");
+        }
+        if (x.isFreeze()) {
+            print0(ucase ? "FREEZE " : "freeze ");
+        }
+        if (x.isVerbose()) {
+            print0(ucase ? "VERBOSE " : "verbose ");
+        }
+        if (x.isAnalyze()) {
+            print0(ucase ? "ANALYZE " : "analyze ");
+        }
+        if (x.isDisablePageSkipping()) {
+            print0(ucase ? "DISABLE_PAGE_SKIPPING " : "disable_page_skipping ");
+        }
+        if (x.isSkipLocked()) {
+            print0(ucase ? "SKIP_LOCKED " : "skip_locked ");
+        }
+        if (x.isProcessToast()) {
+            print0(ucase ? "PROCESS_TOAST " : "process_toast ");
+        }
+        if (x.isTruncate()) {
+            print0(ucase ? "TRUNCATE " : "truncate ");
+        }
+        printAndAccept(x.getTableSources(), ", ");
+        return false;
+    }
+
+    @Override
+    public boolean visit(PGAlterDatabaseStatement x) {
+        print0(ucase ? "ALTER DATABASE " : "alter database ");
+        x.getDatabaseName().accept(this);
+        print(' ');
+        if (x.getRenameToName() != null) {
+            print0(ucase ? "RENAME TO " : "rename to ");
+            x.getRenameToName().accept(this);
+        }
+        if (x.getOwnerToName() != null) {
+            print0(ucase ? "OWNER TO " : "owner to ");
+            x.getOwnerToName().accept(this);
+        }
+
+        if (x.getSetTableSpaceName() != null) {
+            print0(ucase ? "SET TABLESPACE " : "set tablespace ");
+            x.getSetTableSpaceName().accept(this);
+        }
+        if (x.isRefreshCollationVersion()) {
+            print0(ucase ? "REFRESH COLLATION VERSION " : "refresh collation version ");
+        }
+        if (x.getSetParameterName() != null) {
+            print0(ucase ? "SET " : "set ");
+            x.getSetParameterName().accept(this);
+            if (x.isUseEquals()) {
+                print(" = ");
+            } else {
+                print0(ucase ? " TO " : " to ");
+            }
+            x.getSetParameterValue().accept(this);
+        }
+        if (x.getResetParameterName() != null) {
+            print0(ucase ? "RESET " : "reset ");
+            x.getResetParameterName().accept(this);
+        }
         return false;
     }
 }
