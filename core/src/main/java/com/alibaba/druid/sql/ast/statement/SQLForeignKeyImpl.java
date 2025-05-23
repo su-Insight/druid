@@ -29,7 +29,18 @@ public class SQLForeignKeyImpl extends SQLConstraintImpl implements SQLForeignKe
     private boolean onDeleteSetNull;
     private boolean disableNovalidate;
 
+    private boolean hasConstraint;
+    private boolean notEnforced;
+
     public SQLForeignKeyImpl() {
+    }
+
+    public boolean isHasConstraint() {
+        return hasConstraint;
+    }
+
+    public void setHasConstraint(boolean hasConstraint) {
+        this.hasConstraint = hasConstraint;
     }
 
     @Override
@@ -130,6 +141,14 @@ public class SQLForeignKeyImpl extends SQLConstraintImpl implements SQLForeignKe
         SQLForeignKeyImpl x = new SQLForeignKeyImpl();
         cloneTo(x);
         return x;
+    }
+
+    public boolean isNotEnforced() {
+        return notEnforced;
+    }
+
+    public void setNotEnforced(boolean notEnforced) {
+        this.notEnforced = notEnforced;
     }
 
     public static enum Match {

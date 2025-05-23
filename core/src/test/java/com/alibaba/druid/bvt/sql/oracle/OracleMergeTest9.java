@@ -47,8 +47,9 @@ public class OracleMergeTest9 extends OracleTest {
                         "\tSELECT '1' AS aa_item_id, '2' AS mem_test_id\n" +
                         "\tFROM dual\n" +
                         ") t2 ON (t1.aa_item_id = t2.aa_item_id\n" +
-                        "AND t1.mem_test_id = t2.mem_test_id) \n" +
-                        "WHEN NOT MATCHED THEN INSERT (aa_id, aa_item_id, gg_id, test_id) VALUES (?, ?, ?, ?)",
+                        "AND t1.mem_test_id = t2.mem_test_id)\n" +
+                        "WHEN NOT MATCHED THEN INSERT (aa_id, aa_item_id, gg_id, test_id)\n" +
+                        "VALUES (?, ?, ?, ?)",
                 result);
         // Assert.assertTrue(visitor.getColumns().contains(new TableStat.Column("employees", "employee_id")));
         // Assert.assertTrue(visitor.getColumns().contains(new TableStat.Column("employees", "salary")));

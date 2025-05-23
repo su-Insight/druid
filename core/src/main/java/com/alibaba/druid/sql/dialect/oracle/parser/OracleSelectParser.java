@@ -249,6 +249,7 @@ public class OracleSelectParser extends SQLSelectParser {
 
             SQLSelectQuery select = query();
             accept(Token.RPAREN);
+            select.setParenthesized(true);
 
             return queryRest(select, acceptUnion);
         }
@@ -603,9 +604,8 @@ public class OracleSelectParser extends SQLSelectParser {
     }
 
     @Override
-    public SQLTableSource parseTableSource() {
-        SQLTableSource tableSource = parseTableSourcePrimary();
-
+    public SQLTableSource parseTableSource(boolean forFrom) {
+        SQLTableSource tableSource = parseTableSourcePrimary(forFrom);
         if (tableSource instanceof OracleSelectTableSource) {
             return parseTableSourceRest((OracleSelectTableSource) tableSource);
         }
@@ -613,7 +613,7 @@ public class OracleSelectParser extends SQLSelectParser {
         return parseTableSourceRest(tableSource);
     }
 
-    public SQLTableSource parseTableSourcePrimary() {
+    public SQLTableSource parseTableSourcePrimary(boolean forFrom) {
         if (lexer.token() == Token.LPAREN) {
             lexer.nextToken();
 
@@ -633,9 +633,13 @@ public class OracleSelectParser extends SQLSelectParser {
             }
 
             accept(Token.RPAREN);
-
+            if (forFrom) {
+                parsePivot(tableSource);
+                return tableSource;
+            }
             if ((lexer.token() == Token.UNION || lexer.token() == Token.MINUS || lexer.token() == Token.EXCEPT)
                     && tableSource instanceof OracleSelectSubqueryTableSource) {
+                ((OracleSelectSubqueryTableSource) tableSource).getSelect().getQueryBlock().setParenthesized(true);
                 OracleSelectSubqueryTableSource selectSubqueryTableSource = (OracleSelectSubqueryTableSource) tableSource;
                 SQLSelect select = selectSubqueryTableSource.getSelect();
                 SQLSelectQuery selectQuery = this.queryRest(select.getQuery(), true);
@@ -891,7 +895,7 @@ public class OracleSelectParser extends SQLSelectParser {
             join.setJoinType(joinType);
 
             SQLTableSource right;
-            right = parseTableSourcePrimary();
+            right = parseTableSourcePrimary(false);
             // Alias is already set for "... JOIN (tbl1 alias1) ON ..." syntax,
             // so skip setting alias
             if (right.getAlias() == null) {

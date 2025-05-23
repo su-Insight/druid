@@ -55,28 +55,12 @@ public class SQLJoinTableSource extends SQLTableSourceImpl implements SQLReplace
 
     protected void accept0(SQLASTVisitor visitor) {
         if (visitor.visit(this)) {
-            if (left != null) {
-                left.accept(visitor);
-            }
-
-            if (right != null) {
-                right.accept(visitor);
-            }
-
-            if (condition != null) {
-                condition.accept(visitor);
-            }
-
-            for (int i = 0; i < using.size(); i++) {
-                SQLExpr item = using.get(i);
-                if (item != null) {
-                    item.accept(visitor);
-                }
-            }
-
-            if (udj != null) {
-                udj.accept(visitor);
-            }
+            acceptChild(visitor, left);
+            acceptChild(visitor, right);
+            acceptChild(visitor, condition);
+            acceptChild(visitor, using);
+            acceptChild(visitor, udj);
+            super.accept0(visitor);
         }
 
         visitor.endVisit(this);
@@ -284,6 +268,8 @@ public class SQLJoinTableSource extends SQLTableSourceImpl implements SQLReplace
         LEFT_OUTER_JOIN("LEFT JOIN"),
         LEFT_SEMI_JOIN("LEFT SEMI JOIN"),
         LEFT_ANTI_JOIN("LEFT ANTI JOIN"),
+        ARRAY_JOIN("ARRAY JOIN"),
+        LEFT_ARRAY_JOIN("LEFT ARRAY JOIN"),
         RIGHT_OUTER_JOIN("RIGHT JOIN"),
         FULL_OUTER_JOIN("FULL JOIN"),
         STRAIGHT_JOIN("STRAIGHT_JOIN"),
@@ -507,7 +493,7 @@ public class SQLJoinTableSource extends SQLTableSourceImpl implements SQLReplace
         return null;
     }
 
-    public SQLObject resolveColum(long columnNameHash) {
+    public SQLObject resolveColumn(long columnNameHash) {
         if (left != null) {
             SQLObject column = left.resolveColum(columnNameHash);
             if (column != null) {

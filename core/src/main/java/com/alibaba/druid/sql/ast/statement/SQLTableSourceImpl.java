@@ -19,12 +19,14 @@ import com.alibaba.druid.sql.SQLUtils;
 import com.alibaba.druid.sql.ast.*;
 import com.alibaba.druid.sql.ast.expr.SQLIdentifierExpr;
 import com.alibaba.druid.sql.ast.expr.SQLPropertyExpr;
+import com.alibaba.druid.sql.visitor.SQLASTVisitor;
 import com.alibaba.druid.util.FnvHash;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public abstract class SQLTableSourceImpl extends SQLObjectImpl implements SQLTableSource {
+    protected boolean needAsTokenForAlias;
     protected String alias;
     protected List<SQLHint> hints;
     protected SQLExpr flashback;
@@ -37,6 +39,14 @@ public abstract class SQLTableSourceImpl extends SQLObjectImpl implements SQLTab
 
     public SQLTableSourceImpl(String alias) {
         this.alias = alias;
+    }
+
+    public boolean isNeedAsTokenForAlias() {
+        return needAsTokenForAlias;
+    }
+
+    public void setNeedAsTokenForAlias(boolean needAsTokenForAlias) {
+        this.needAsTokenForAlias = needAsTokenForAlias;
     }
 
     public String getAlias() {
@@ -138,7 +148,7 @@ public abstract class SQLTableSourceImpl extends SQLObjectImpl implements SQLTab
         return null;
     }
 
-    public SQLObject resolveColum(long columnNameHash) {
+    public SQLObject resolveColumn(long columnNameHash) {
         return findColumn(columnNameHash);
     }
 
@@ -238,5 +248,15 @@ public abstract class SQLTableSourceImpl extends SQLObjectImpl implements SQLTab
             x.setParent(this);
         }
         this.unpivot = x;
+    }
+
+    @Override
+    protected void accept0(SQLASTVisitor visitor) {
+        if (visitor.visit(this)) {
+            acceptChild(visitor, this.flashback);
+            acceptChild(visitor, this.pivot);
+            acceptChild(visitor, this.unpivot);
+        }
+        visitor.endVisit(this);
     }
 }

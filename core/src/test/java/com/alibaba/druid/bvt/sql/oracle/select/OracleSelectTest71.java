@@ -83,7 +83,7 @@ public class OracleSelectTest71 extends OracleTest {
                     "\t\tLEFT JOIN BAS_VEHICLE D ON B.VECL_ID = D.ID \n" +
                     "\t\t\tLEFT JOIN BAS_APPLICATION E ON A.APP_ID = E.ID \n" +
                     "\t\tWHERE 1 = 1\n" +
-                    "\t\t\tAND A.SIM_NO LIKE ('%' || ? || '%')\n" +
+                    "\t\t\tAND A.SIM_NO LIKE '%' || ? || '%'\n" +
                     "\t\tORDER BY A.SIM_NO ASC\n" +
                     "\t) a\n" +
                     ")\n" +
@@ -96,7 +96,7 @@ public class OracleSelectTest71 extends OracleTest {
     }
 
     public void testSelectWithJoin_UnderParen() {
-        String sql = "SELECT /* NUSQL.TEST */\n" +
+        String sql = "SELECT\n" +
                      "    A.ID,\n" +
                      "    B.NAME,\n" +
                      "    C.TYPE\n" +
