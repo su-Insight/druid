@@ -51,6 +51,15 @@ import java.sql.Blob;
 import java.sql.Clob;
 import java.sql.NClob;
 import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.OffsetTime;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.TemporalAmount;
 import java.util.*;
 
 import static com.alibaba.druid.util.Utils.getBoolean;
@@ -1923,10 +1932,9 @@ public class SQLASTOutputVisitor extends SQLASTVisitorAdapter implements Paramet
         return false;
     }
 
-    protected void printMethodParameters(SQLMethodInvokeExpr x) {
+    private void printMethodParameters(SQLMethodInvokeExpr x, List<SQLExpr> parameters) {
         String function = x.getMethodName();
         long nameHashCode64 = x.methodNameHashCode64();
-        List<SQLExpr> parameters = x.getArguments();
 
         print('(');
 
@@ -1983,6 +1991,15 @@ public class SQLASTOutputVisitor extends SQLASTVisitorAdapter implements Paramet
             }
 
             printExpr(param, parameterized);
+        }
+    }
+    protected void printMethodParameters(SQLMethodInvokeExpr x) {
+        List<SQLExpr> parameters = x.getArguments();
+
+        printMethodParameters(x, parameters);
+        if (x instanceof SQLParametricMethodInvokeExpr) {
+            print(')');
+            printMethodParameters(x, ((SQLParametricMethodInvokeExpr) x).getSecondArguments());
         }
 
         SQLExpr from = x.getFrom();
@@ -3103,12 +3120,48 @@ public class SQLASTOutputVisitor extends SQLASTVisitorAdapter implements Paramet
         return false;
     }
 
+    private void printParameterWithSingleQuot(Object param) {
+        print0("'");
+        print(String.valueOf(param));
+        print0("'");
+    }
     public void printParameter(Object param) {
         if (param == null) {
             print0(ucase ? "NULL" : "null");
             return;
         }
 
+        if (param instanceof Double) {
+            param = new BigDecimal((double) param);
+        }
+        if (param instanceof BigDecimal) { // 不需要科学计数法输出
+            print0(((BigDecimal) param).toPlainString());
+            return;
+        }
+        if (param instanceof Calendar) {
+            printParameterWithSingleQuot(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS").format(new java.sql.Timestamp(((Calendar) param).getTimeInMillis())));
+            return;
+        }
+        if (param instanceof LocalDateTime) {
+            printParameterWithSingleQuot(((LocalDateTime) param).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")));
+            return;
+        }
+        if (param instanceof ZonedDateTime) {
+            printParameterWithSingleQuot(((ZonedDateTime) param).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")));
+            return;
+        }
+        if (param instanceof OffsetDateTime) {
+            printParameterWithSingleQuot(((OffsetDateTime) param).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")));
+            return;
+        }
+        if (param instanceof OffsetTime || param instanceof LocalTime || param instanceof LocalDate || param instanceof Instant) {
+            printParameterWithSingleQuot(param.toString());
+            return;
+        }
+        if (param instanceof TemporalAmount) {
+            printParameterWithSingleQuot(param.toString());
+            return;
+        }
         if (param instanceof Number //
                 || param instanceof Boolean || param instanceof java.time.temporal.Temporal) {
             print0(param.toString());
