@@ -51,6 +51,15 @@ import java.sql.Blob;
 import java.sql.Clob;
 import java.sql.NClob;
 import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.OffsetTime;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.TemporalAmount;
 import java.util.*;
 
 import static com.alibaba.druid.util.Utils.getBoolean;
@@ -1614,7 +1623,8 @@ public class SQLASTOutputVisitor extends SQLASTVisitorAdapter implements Paramet
 
             boolean allLiteral = true;
             for (SQLExpr item : targetList) {
-                if (!(item instanceof SQLLiteralExpr || item instanceof SQLVariantRefExpr)) {
+                if (!((item instanceof SQLUnaryExpr && ((SQLUnaryExpr) item).getExpr() instanceof SQLLiteralExpr) || item instanceof SQLLiteralExpr
+                    || item instanceof SQLVariantRefExpr)) {
                     if (item instanceof SQLListExpr) {
                         SQLListExpr list = (SQLListExpr) item;
                         for (SQLExpr listItem : list.getItems()) {
@@ -1922,10 +1932,9 @@ public class SQLASTOutputVisitor extends SQLASTVisitorAdapter implements Paramet
         return false;
     }
 
-    protected void printMethodParameters(SQLMethodInvokeExpr x) {
+    private void printMethodParameters(SQLMethodInvokeExpr x, List<SQLExpr> parameters) {
         String function = x.getMethodName();
         long nameHashCode64 = x.methodNameHashCode64();
-        List<SQLExpr> parameters = x.getArguments();
 
         print('(');
 
@@ -1982,6 +1991,15 @@ public class SQLASTOutputVisitor extends SQLASTVisitorAdapter implements Paramet
             }
 
             printExpr(param, parameterized);
+        }
+    }
+    protected void printMethodParameters(SQLMethodInvokeExpr x) {
+        List<SQLExpr> parameters = x.getArguments();
+
+        printMethodParameters(x, parameters);
+        if (x instanceof SQLParametricMethodInvokeExpr) {
+            print(')');
+            printMethodParameters(x, ((SQLParametricMethodInvokeExpr) x).getSecondArguments());
         }
 
         SQLExpr from = x.getFrom();
@@ -3102,12 +3120,48 @@ public class SQLASTOutputVisitor extends SQLASTVisitorAdapter implements Paramet
         return false;
     }
 
+    private void printParameterWithSingleQuot(Object param) {
+        print0("'");
+        print(String.valueOf(param));
+        print0("'");
+    }
     public void printParameter(Object param) {
         if (param == null) {
             print0(ucase ? "NULL" : "null");
             return;
         }
 
+        if (param instanceof Double) {
+            param = new BigDecimal((double) param);
+        }
+        if (param instanceof BigDecimal) { // 不需要科学计数法输出
+            print0(((BigDecimal) param).toPlainString());
+            return;
+        }
+        if (param instanceof Calendar) {
+            printParameterWithSingleQuot(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS").format(new java.sql.Timestamp(((Calendar) param).getTimeInMillis())));
+            return;
+        }
+        if (param instanceof LocalDateTime) {
+            printParameterWithSingleQuot(((LocalDateTime) param).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")));
+            return;
+        }
+        if (param instanceof ZonedDateTime) {
+            printParameterWithSingleQuot(((ZonedDateTime) param).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")));
+            return;
+        }
+        if (param instanceof OffsetDateTime) {
+            printParameterWithSingleQuot(((OffsetDateTime) param).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")));
+            return;
+        }
+        if (param instanceof OffsetTime || param instanceof LocalTime || param instanceof LocalDate || param instanceof Instant) {
+            printParameterWithSingleQuot(param.toString());
+            return;
+        }
+        if (param instanceof TemporalAmount) {
+            printParameterWithSingleQuot(param.toString());
+            return;
+        }
         if (param instanceof Number //
                 || param instanceof Boolean || param instanceof java.time.temporal.Temporal) {
             print0(param.toString());
@@ -3650,13 +3704,18 @@ public class SQLASTOutputVisitor extends SQLASTVisitorAdapter implements Paramet
     public boolean visit(SQLCreateTableStatement x) {
         printCreateTable(x, true);
 
+        SQLPartitionOf partitionOf = x.getPartitionOf();
+        if (partitionOf != null) {
+            println();
+            print0(ucase ? "PARTITION OF " : "partition of ");
+            partitionOf.accept(this);
+        }
         SQLPartitionBy partitionBy = x.getPartitioning();
         if (partitionBy != null) {
             println();
             print0(ucase ? "PARTITION BY " : "partition by ");
             partitionBy.accept(this);
         }
-
         List<SQLAssignItem> options = x.getTableOptions();
         if (options.size() > 0) {
             println();
@@ -6527,7 +6586,14 @@ public class SQLASTOutputVisitor extends SQLASTVisitorAdapter implements Paramet
         }
         this.indentCount--;
         println();
-        x.getBody().accept(this);
+        if (x.getExecuteType() != null && x.getExecuteFunc() != null) {
+            print0(ucase ? x.getExecuteType().toUpperCase() : x.getExecuteType().toLowerCase());
+            print0(" ");
+            x.getExecuteFunc().accept(this);
+        }
+        if (x.getBody() != null) {
+            x.getBody().accept(this);
+        }
         return false;
     }
 
@@ -11572,6 +11638,57 @@ public class SQLASTOutputVisitor extends SQLASTVisitorAdapter implements Paramet
         print0(ucase ? "COST SQL" : "cost sql");
         println();
         x.getStatement().accept(this);
+        return false;
+    }
+
+    public boolean visit(SQLPartitionOf x) {
+        x.getParentTable().accept(this);
+        if (x.isUseDefault()) {
+            print0(ucase ? " DEFAULT" : " pdefault");
+        }
+        if (x.getColumnName() != null || x.getConstraintName() != null || x.getCheckExpr() != null) {
+            print0(" (");
+        }
+        if (x.getColumnName() != null) {
+            x.getColumnName().accept(this);
+        }
+        if (x.getConstraintName() != null) {
+            print0(ucase ? " CONSTRAINT " : " constraint ");
+            x.getConstraintName().accept(this);
+        }
+        if (x.getCheckExpr() != null) {
+            print0(ucase ? " CHECK (" : " check (");
+            x.getCheckExpr().accept(this);
+            print0(")");
+        }
+        if (x.getDefaultExpr() != null) {
+            print0(ucase ? " DEFAULT " : " default ");
+            x.getDefaultExpr().accept(this);
+        }
+        if (x.getColumnName() != null || x.getConstraintName() != null || x.getCheckExpr() != null) {
+            print0(" )");
+        }
+        if (x.getForValuesFrom() != null && x.getForValuesTo() != null) {
+            print0(ucase ? " FOR VALUES FROM (" : " for values from (");
+            printAndAccept(x.getForValuesFrom(), ", ");
+            print0(ucase ? ") TO (" : ") to (");
+            printAndAccept(x.getForValuesTo(), ", ");
+            print0(")");
+        }
+        if (x.getForValuesIn() != null) {
+            print0(ucase ? " FOR VALUES IN (" : " for values in (");
+            printAndAccept(x.getForValuesIn(), ", ");
+            print0(")");
+        }
+        if (x.getForValuesModulus() != null && x.getForValuesRemainder() != null) {
+            print0(ucase ? " FOR VALUES WITH (" : " for values with (");
+            print0(ucase ? "MODULUS " : "modulus ");
+            x.getForValuesModulus().accept(this);
+            print0(" , ");
+            print0(ucase ? "REMAINDER " : "remainder ");
+            x.getForValuesRemainder().accept(this);
+            print0(")");
+        }
         return false;
     }
 }
