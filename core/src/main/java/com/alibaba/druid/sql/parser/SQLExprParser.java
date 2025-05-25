@@ -21,6 +21,7 @@ import com.alibaba.druid.sql.ast.*;
 import com.alibaba.druid.sql.ast.expr.*;
 import com.alibaba.druid.sql.ast.statement.*;
 import com.alibaba.druid.sql.dialect.mysql.ast.expr.MySqlCharExpr;
+import com.alibaba.druid.sql.dialect.mysql.parser.MySqlCreateTableParser;
 import com.alibaba.druid.sql.dialect.oracle.ast.expr.OracleArgumentExpr;
 import com.alibaba.druid.sql.dialect.postgresql.ast.expr.PGTypeCastExpr;
 import com.alibaba.druid.sql.parser.Lexer.SavePoint;
@@ -225,6 +226,13 @@ public class SQLExprParser extends SQLParser {
                 lexer.nextToken();
                 SQLExpr rightExp = primary();
                 expr = new SQLBinaryOpExpr(expr, SQLBinaryOperator.QuesBar, rightExp, dbType);
+                expr = bitXorRest(expr);
+                break;
+            }
+            case QUESQUESBAR: {
+                lexer.nextToken();
+                SQLExpr rightExp = primary();
+                expr = new SQLBinaryOpExpr(expr, SQLBinaryOperator.QuesQuesBar, rightExp, dbType);
                 expr = bitXorRest(expr);
                 break;
             }
@@ -1861,8 +1869,28 @@ public class SQLExprParser extends SQLParser {
         }
 
         Token token = lexer.token;
+        if ("XMLSERIALIZE".equals(methodName) && lexer.identifierEquals("CONTENT")) {
+            SQLExpr contentExpr = expr();
+            methodInvokeExpr.setContent(contentExpr);
+        }
         if (token != Token.RPAREN && token != Token.FROM) {
             exprList(methodInvokeExpr.getArguments(), methodInvokeExpr);
+            if (lexer.token == Token.RPAREN) {
+                Lexer.SavePoint mark = lexer.mark();
+                lexer.nextToken();
+                if (lexer.token == Token.LPAREN) {
+                    //for clickhouse parametric functions
+                    //处理类似偏函数的语法 func(x,y)(a,b,c)
+                    lexer.nextToken();
+                    SQLParametricMethodInvokeExpr parametricExpr =
+                        new SQLParametricMethodInvokeExpr(methodName, hash_lower);
+                    methodInvokeExpr.cloneTo(parametricExpr);
+                    methodInvokeExpr = parametricExpr;
+                    exprList(((SQLParametricMethodInvokeExpr) methodInvokeExpr).getSecondArguments(), methodInvokeExpr);
+                } else {
+                    lexer.reset(mark);
+                }
+            }
         }
 
         if (hash_lower == FnvHash.Constants.EXIST
@@ -1927,6 +1955,11 @@ public class SQLExprParser extends SQLParser {
             }
         }
 
+        if (lexer.token == Token.AS || lexer.identifierEquals(FnvHash.Constants.AS)) {
+            lexer.nextToken();
+            final SQLExpr as = this.primary();
+            methodInvokeExpr.setAs(as);
+        }
         SQLAggregateExpr aggregateExpr = null;
         if (lexer.token == Token.ORDER) {
             lexer.nextToken();
@@ -2201,6 +2234,13 @@ public class SQLExprParser extends SQLParser {
             if (expr != null) {
                 expr.setParent(parent);
                 exprCol.add(expr);
+                // https://github.com/alibaba/druid/issues/5709
+                if (lexer.hasComment()
+                        && lexer.isKeepComments()
+                        && lexer.getComments().size() == 1
+                        && lexer.getComments().get(0).startsWith("--")) {
+                    expr.addAfterComment(lexer.readAndResetComments());
+                }
             }
 
             if (lexer.token == Token.COMMA) {
@@ -4301,35 +4341,35 @@ public class SQLExprParser extends SQLParser {
 
         SQLName typeExpr = name();
         final long typeNameHashCode = typeExpr.nameHashCode64();
-        String typeName = typeExpr.toString();
+        StringBuilder typeName = new StringBuilder(typeExpr.toString());
 
         if (typeNameHashCode == FnvHash.Constants.LONG
                 && lexer.identifierEquals(FnvHash.Constants.BYTE)
                 && DbType.mysql == dbType) {
-            typeName += (' ' + lexer.stringVal());
+            typeName.append(' ').append(lexer.stringVal());
             lexer.nextToken();
         } else if (typeNameHashCode == FnvHash.Constants.DOUBLE) {
             if (DbType.postgresql == dbType) {
-                typeName += (' ' + lexer.stringVal());
+                typeName.append(' ').append(lexer.stringVal());
                 lexer.nextToken();
             } else if (DbType.mysql == dbType && lexer.identifierEquals(FnvHash.Constants.PRECISION)) {
-                typeName += (' ' + lexer.stringVal());
+                typeName.append(' ').append(lexer.stringVal());
                 lexer.nextToken();
             }
         }
 
         if (typeNameHashCode == FnvHash.Constants.UNSIGNED) {
             if (lexer.token == Token.IDENTIFIER) {
-                typeName += (' ' + lexer.stringVal());
+                typeName.append(' ').append(lexer.stringVal());
                 lexer.nextToken();
             }
         } else if (typeNameHashCode == FnvHash.Constants.SIGNED) {
             if (lexer.token == Token.IDENTIFIER) {
-                typeName += (' ' + lexer.stringVal());
+                typeName.append(' ').append(lexer.stringVal());
                 lexer.nextToken();
             }
         } else if (isCharType(typeNameHashCode)) {
-            SQLCharacterDataType charType = new SQLCharacterDataType(typeName);
+            SQLCharacterDataType charType = new SQLCharacterDataType(typeName.toString());
 
             //for ads
             if (lexer.token == Token.LBRACKET) {
@@ -4368,13 +4408,13 @@ public class SQLExprParser extends SQLParser {
             return charType;
         }
 
-        if ("national".equalsIgnoreCase(typeName) &&
+        if ("national".equalsIgnoreCase(typeName.toString()) &&
                 (lexer.identifierEquals(FnvHash.Constants.CHAR)
                         || lexer.identifierEquals(FnvHash.Constants.VARCHAR))) {
-            typeName += ' ' + lexer.stringVal();
+            typeName.append(' ').append(lexer.stringVal());
             lexer.nextToken();
 
-            SQLCharacterDataType charType = new SQLCharacterDataType(typeName);
+            SQLCharacterDataType charType = new SQLCharacterDataType(typeName.toString());
 
             if (lexer.token == Token.LPAREN) {
                 lexer.nextToken();
@@ -4398,30 +4438,30 @@ public class SQLExprParser extends SQLParser {
             return charType;
         }
 
-        if ("character".equalsIgnoreCase(typeName) && "varying".equalsIgnoreCase(lexer.stringVal())) {
-            typeName += ' ' + lexer.stringVal();
+        if ("character".equalsIgnoreCase(typeName.toString()) && "varying".equalsIgnoreCase(lexer.stringVal())) {
+            typeName.append(' ').append(lexer.stringVal());
             lexer.nextToken();
         }
 
         if (lexer.token == Token.LT && dbType == DbType.odps) {
             lexer.nextToken();
-            typeName += '<';
+            typeName.append('<');
             for (; ; ) {
                 SQLDataType itemType = this.parseDataType();
-                typeName += itemType.toString();
+                typeName.append(itemType.toString());
                 if (lexer.token == Token.COMMA) {
                     lexer.nextToken();
-                    typeName += ", ";
+                    typeName.append(", ");
                     continue;
                 } else {
                     break;
                 }
             }
             accept(Token.GT);
-            typeName += '>';
+            typeName.append('>');
         }
 
-        SQLDataType dataType = new SQLDataTypeImpl(typeName);
+        SQLDataType dataType = new SQLDataTypeImpl(typeName.toString());
         dataType.setDbType(dbType);
 
         //for ads
@@ -4885,7 +4925,7 @@ public class SQLExprParser extends SQLParser {
                     column.setComment(alias);
                     lexer.nextToken();
                 } else if (lexer.token == Token.LITERAL_CHARS) {
-                    String stringVal = lexer.stringVal();
+                    StringBuilder stringVal = new StringBuilder(lexer.stringVal());
                     lexer.nextToken();
 
                     if (dbType == DbType.odps) {
@@ -4896,10 +4936,10 @@ public class SQLExprParser extends SQLParser {
                                     tmp = tmp.substring(1, tmp.length() - 1);
                                 }
 
-                                stringVal += tmp;
+                                stringVal.append(tmp);
                                 lexer.nextToken();
                             } else if (lexer.token == Token.LITERAL_CHARS) {
-                                stringVal += lexer.stringVal();
+                                stringVal.append(lexer.stringVal());
                                 lexer.nextToken();
                             } else {
                                 break;
@@ -4907,7 +4947,7 @@ public class SQLExprParser extends SQLParser {
                         }
                     }
 
-                    column.setComment(stringVal);
+                    column.setComment(stringVal.toString());
                 } else {
                     column.setComment(primary());
                 }
@@ -5630,7 +5670,10 @@ public class SQLExprParser extends SQLParser {
                             break _opts;
                         }
                         break;
-
+                    case PARTITION:
+                        SQLPartitionBy partitionBy = new MySqlCreateTableParser(this).parsePartitionBy();
+                        indexDefinition.setPartitioning(partitionBy);
+                        break;
                     default:
                         break _opts;
                 }
