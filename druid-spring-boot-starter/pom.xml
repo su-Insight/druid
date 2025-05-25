@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.alibaba</groupId>
         <artifactId>druid-parent</artifactId>
-        <version>1.2.21-SNAPSHOT</version>
+        <version>1.2.23-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     <artifactId>druid-spring-boot-starter</artifactId>
@@ -117,16 +117,4 @@
             <comments>A business-friendly OSS license</comments>
         </license>
     </licenses>
-
-    <profiles>
-        <profile>
-            <id>enable-for-jdk17+</id>
-            <activation>
-                <jdk>[17,)</jdk>
-            </activation>
-            <properties>
-                <maven.test.skip>true</maven.test.skip>
-            </properties>
-        </profile>
-    </profiles>
 </project>
