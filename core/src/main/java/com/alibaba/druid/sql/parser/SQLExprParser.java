@@ -106,8 +106,30 @@ public class SQLExprParser extends SQLParser {
             return expr;
         }
 
+        boolean parenthesized = (lexer.token == Token.LPAREN);
         SQLExpr expr = primary();
-
+        if (parenthesized && expr instanceof SQLBinaryOpExpr) {
+            if (((SQLBinaryOpExpr) expr).isParenthesized()) {
+                parenthesized = false;
+            }
+        }
+        if (parenthesized && expr instanceof SQLCaseExpr) {
+            parenthesized = false;
+            ((SQLCaseExpr) expr).setParenthesized(true);
+        }
+        if (parenthesized && expr instanceof SQLUnaryExpr) {
+            if (((SQLUnaryExpr) expr).isParenthesized()) {
+                parenthesized = false;
+            }
+        }
+        if (parenthesized && expr instanceof SQLQueryExpr) {
+            parenthesized = false;
+            ((SQLQueryExpr) expr).setParenthesized(true);
+        }
+        if (parenthesized && expr instanceof SQLIdentifierExpr) {
+            parenthesized = false;
+            ((SQLIdentifierExpr) expr).setParenthesized(true);
+        }
         Lexer.SavePoint mark = lexer.mark();
         Token token = lexer.token;
         if (token == Token.COMMA) {
@@ -128,7 +150,14 @@ public class SQLExprParser extends SQLParser {
                 return exprRest(expr);
             }
         } else {
-            return exprRest(expr);
+            SQLExpr sqlExpr = exprRest(expr);
+            if (parenthesized && sqlExpr instanceof SQLBinaryOpExpr) {
+                ((SQLBinaryOpExpr) sqlExpr).setParenthesized(true);
+            }
+            if (parenthesized && sqlExpr instanceof SQLUnaryExpr) {
+                ((SQLUnaryExpr) sqlExpr).setParenthesized(true);
+            }
+            return sqlExpr;
         }
     }
 
@@ -378,9 +407,8 @@ public class SQLExprParser extends SQLParser {
 
                     sqlExpr = listExpr;
                 }
-
-                if (sqlExpr instanceof SQLBinaryOpExpr) {
-                    ((SQLBinaryOpExpr) sqlExpr).setParenthesized(true);
+                if (sqlExpr instanceof SQLExprImpl) {
+                    ((SQLExprImpl) sqlExpr).setParenthesized(true);
                 }
 
                 if ((lexer.token == Token.UNION || lexer.token == Token.MINUS || lexer.token == Token.EXCEPT)
@@ -845,7 +873,12 @@ public class SQLExprParser extends SQLParser {
                     lexer.nextToken();
 
                     SQLExpr notTarget = expr();
-
+                    if (notTarget instanceof SQLBinaryOpExpr) {
+                        ((SQLBinaryOpExpr) notTarget).setParenthesized(true);
+                    }
+                    if (notTarget instanceof SQLUnaryExpr) {
+                        ((SQLUnaryExpr) notTarget).setParenthesized(true);
+                    }
                     accept(Token.RPAREN);
                     notTarget = bitXorRest(notTarget);
                     notTarget = multiplicativeRest(notTarget);
@@ -1356,7 +1389,10 @@ public class SQLExprParser extends SQLParser {
         if (beforeComments != null) {
             expr.addBeforeComment(beforeComments);
         }
-
+        if (lexer.hasComment() && lexer.isKeepComments()) {
+            // @todo 是否保留注释，暂时待定，因为保留的话，有20来个测试用例会失败 by lizongbo
+            // expr.addAfterComment(lexer.readAndResetComments());
+        }
         return expr;
     }
 
@@ -5748,6 +5784,9 @@ public class SQLExprParser extends SQLParser {
         SQLCheck check = createCheck();
         accept(Token.LPAREN);
         check.setExpr(this.expr());
+        if (check.getExpr() instanceof SQLExprImpl) {
+            ((SQLExprImpl) check.getExpr()).setParenthesized(true);
+        }
         accept(Token.RPAREN);
         return check;
     }
