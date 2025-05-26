@@ -27,7 +27,7 @@ public class SQLExprStatement extends SQLStatementImpl implements SQLReplaceable
     }
 
     public SQLExprStatement(SQLExpr expr) {
-        this.expr = expr;
+        this.setExpr(expr);
     }
 
     @Override
@@ -36,7 +36,6 @@ public class SQLExprStatement extends SQLStatementImpl implements SQLReplaceable
             acceptChild(visitor, expr);
         }
         visitor.endVisit(this);
-
     }
 
     public SQLExpr getExpr() {
@@ -57,5 +56,18 @@ public class SQLExprStatement extends SQLStatementImpl implements SQLReplaceable
             return true;
         }
         return false;
+    }
+
+    public SQLExprStatement clone() {
+        SQLExprStatement x = new SQLExprStatement();
+        cloneTo(x);
+        return x;
+    }
+
+    protected void cloneTo(SQLExprStatement x) {
+        super.cloneTo(x);
+        if (x.getExpr() != null) {
+            x.setExpr(x.getExpr().clone());
+        }
     }
 }

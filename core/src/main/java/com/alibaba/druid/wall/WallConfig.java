@@ -29,7 +29,7 @@ public class WallConfig implements WallConfigMBean {
     private boolean noneBaseStatementAllow;
 
     private boolean callAllow = true;
-    private boolean selelctAllow = true;
+    private boolean selectAllow = true;
     private boolean selectIntoAllow = true;
     private boolean selectIntoOutfileAllow;
     private boolean selectWhereAlwayTrueCheck = true;
@@ -119,7 +119,7 @@ public class WallConfig implements WallConfigMBean {
     private boolean metadataAllow = true;
 
     private boolean conditionOpXorAllow;
-    private boolean conditionOpBitwseAllow = true;
+    private boolean conditionOpBitwiseAllow = true;
 
     private boolean caseConditionConstAllow;
 
@@ -696,23 +696,25 @@ public class WallConfig implements WallConfigMBean {
     }
 
     public boolean isSelectAllow() {
-        return selelctAllow;
+        return selectAllow;
     }
 
-    public void setSelectAllow(boolean selelctAllow) {
-        this.selelctAllow = selelctAllow;
+    public void setSelectAllow(boolean selectAllow) {
+        this.selectAllow = selectAllow;
     }
 
     /**
-     * @deprecated use isSelectAllow
+     * @deprecated use {@link WallConfig#isSelectAllow()}
      */
+    @Deprecated
     public boolean isSelelctAllow() {
         return isSelectAllow();
     }
 
     /**
-     * @deprecated use setSelelctAllow
+     * @deprecated use {@link WallConfig#setSelectAllow(boolean)}
      */
+    @Deprecated
     public void setSelelctAllow(boolean selelctAllow) {
         this.setSelectAllow(selelctAllow);
     }
@@ -757,10 +759,17 @@ public class WallConfig implements WallConfigMBean {
         this.deleteWhereAlwayTrueCheck = deleteWhereAlwayTrueCheck;
     }
 
+    /**
+     * @deprecated use {@link WallConfig#isUpdateWhereAlwayTrueCheck()}
+     */
+    @Deprecated
     public boolean isUpdateWhereAlayTrueCheck() {
         return updateWhereAlwayTrueCheck;
     }
 
+    /**
+     * @deprecated use {@link WallConfig#setUpdateWhereAlwayTrueCheck(boolean)}
+     */
     @Deprecated
     public void setUpdateWhereAlayTrueCheck(boolean updateWhereAlwayTrueCheck) {
         this.updateWhereAlwayTrueCheck = updateWhereAlwayTrueCheck;
@@ -773,13 +782,35 @@ public class WallConfig implements WallConfigMBean {
         this.updateWhereAlwayTrueCheck = updateWhereAlwayTrueCheck;
     }
 
+    /**
+     * @deprecated Sine 1.2.24, use {@link WallConfig#isConditionOpBitwiseAllow()} instead.
+     */
     @Deprecated
     public boolean isConditionOpBitwseAllow() {
-        return conditionOpBitwseAllow;
+        return isConditionOpBitwiseAllow();
     }
 
+    /**
+     *
+     * @deprecated Sine 1.2.24, use {@link WallConfig#setConditionOpBitwiseAllow(boolean)} instead.
+     */
+    @Deprecated
     public void setConditionOpBitwseAllow(boolean conditionOpBitwseAllow) {
-        this.conditionOpBitwseAllow = conditionOpBitwseAllow;
+        setConditionOpBitwiseAllow(conditionOpBitwseAllow);
+    }
+
+    /**
+     * @since 1.2.24
+     */
+    public boolean isConditionOpBitwiseAllow() {
+        return conditionOpBitwiseAllow;
+    }
+
+    /**
+     * @since 1.2.24
+     */
+    public void setConditionOpBitwiseAllow(boolean conditionOpBitwiseAllow) {
+        this.conditionOpBitwiseAllow = conditionOpBitwiseAllow;
     }
 
     public void setInited(boolean inited) {
@@ -842,7 +873,11 @@ public class WallConfig implements WallConfigMBean {
             }
         }
         {
-            Boolean propertyValue = getBoolean(properties, "druid.wall.selelctAllow");
+            Boolean propertyValue = getBoolean(properties, "druid.wall.selectAllow");
+            //Compatible with previous property
+            if (propertyValue == null) {
+                propertyValue = getBoolean(properties, "druid.wall.selelctAllow");
+            }
             if (propertyValue != null) {
                 this.setSelectAllow(propertyValue);
             }
@@ -882,7 +917,7 @@ public class WallConfig implements WallConfigMBean {
             if (propertyValue != null) {
                 String[] items = propertyValue.split(",");
                 for (String item : items) {
-                    addUpdateCheckCoumns(item);
+                    addUpdateCheckColumns(item);
                 }
             }
         }
@@ -900,7 +935,19 @@ public class WallConfig implements WallConfigMBean {
         }
     }
 
+    /**
+     *
+     * @deprecated Since 1.2.24, use {@link WallConfig#addUpdateCheckColumns(String)} instead.
+     */
+    @Deprecated
     public void addUpdateCheckCoumns(String columnInfo) {
+        addUpdateCheckColumns(columnInfo);
+    }
+
+    /**
+     * @since 1.2.24
+     */
+    public void addUpdateCheckColumns(String columnInfo) {
         String[] items = columnInfo.split("\\.");
         if (items.length != 2) {
             return;
