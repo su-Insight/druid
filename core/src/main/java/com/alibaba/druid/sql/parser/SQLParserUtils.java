@@ -102,6 +102,11 @@ public class SQLParserUtils {
     }
 
     public static SQLStatementParser createSQLStatementParser(String sql, DbType dbType, SQLParserFeature... features) {
+        if (sql.indexOf("\r\n") != -1) {
+            // com.alibaba.druid.sql.parser.Lexer only recognizes Linux newline '\n'.
+            sql = sql.replace("\r\n", "\n");
+        }
+
         if (dbType == null) {
             dbType = DbType.other;
         }
@@ -495,7 +500,7 @@ public class SQLParserUtils {
             return sql;
         }
         SQLStatementParser parser = createSQLStatementParser(sql, dbType);
-        StringBuffer buf = new StringBuffer(sql.length() + 20);
+        StringBuilder buf = new StringBuilder(sql.length() + 20);
         SQLASTOutputVisitor out = SQLUtils.createOutputVisitor(buf, DbType.mysql);
         out.config(VisitorFeature.OutputNameQuote, true);
 
