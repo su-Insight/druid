@@ -19,6 +19,7 @@ import com.alibaba.druid.DbType;
 import com.alibaba.druid.sql.ast.*;
 import com.alibaba.druid.sql.ast.expr.*;
 import com.alibaba.druid.sql.ast.statement.*;
+import com.alibaba.druid.sql.ast.statement.SQLJoinTableSource.JoinType;
 import com.alibaba.druid.sql.dialect.db2.ast.stmt.DB2SelectQueryBlock;
 import com.alibaba.druid.sql.dialect.hive.parser.HiveCreateTableParser;
 import com.alibaba.druid.sql.dialect.hive.stmt.HiveCreateTableStatement;
@@ -1082,6 +1083,11 @@ public class SQLSelectParser extends SQLParser {
                     && lexer.line == line + 1) {
                 selectItem.addAfterComment(lexer.readAndResetComments());
             }
+
+            // https://github.com/alibaba/druid/issues/5140
+            if (lexer.token == Token.FROM) {
+                throw new ParserException("syntax error, expect is not TOKEN:from " + lexer.info());
+            }
         }
     }
 
@@ -1481,9 +1487,9 @@ public class SQLSelectParser extends SQLParser {
                     joinType = SQLJoinTableSource.JoinType.LEFT_ANTI_JOIN;
                 } else if (lexer.token == Token.OUTER) {
                     lexer.nextToken();
-                    joinType = SQLJoinTableSource.JoinType.LEFT_OUTER_JOIN;
+                    joinType = natural ? SQLJoinTableSource.JoinType.NATURAL_LEFT_JOIN : SQLJoinTableSource.JoinType.LEFT_OUTER_JOIN;
                 } else {
-                    joinType = SQLJoinTableSource.JoinType.LEFT_OUTER_JOIN;
+                    joinType = natural ? SQLJoinTableSource.JoinType.NATURAL_LEFT_JOIN : SQLJoinTableSource.JoinType.LEFT_OUTER_JOIN;
                 }
 
                 if (dbType == DbType.odps && lexer.token == Token.IDENTIFIER && lexer.stringVal().startsWith("join@")) {
@@ -1787,6 +1793,15 @@ public class SQLSelectParser extends SQLParser {
                         && tableSource.aliasHashCode64() == FnvHash.Constants.NATURAL && DbType.mysql == dbType) {
                     tableSource.setAlias(null);
                     natural = true;
+                    if (natural && join.getJoinType() == SQLJoinTableSource.JoinType.LEFT_OUTER_JOIN) {
+                        join.setJoinType(SQLJoinTableSource.JoinType.NATURAL_LEFT_JOIN);
+                    }
+                    if (natural && join.getJoinType() == JoinType.RIGHT_OUTER_JOIN) {
+                        join.setJoinType(SQLJoinTableSource.JoinType.NATURAL_RIGHT_JOIN);
+                    }
+                    if (natural && join.getJoinType() == JoinType.INNER_JOIN) {
+                        join.setJoinType(SQLJoinTableSource.JoinType.NATURAL_INNER_JOIN);
+                    }
                 }
             }
             join.setNatural(natural);
