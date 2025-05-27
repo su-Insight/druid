@@ -292,27 +292,15 @@ public class Lexer {
     }
 
     public String info() {
-        int line = 1;
-        int column = 1;
-        for (int i = 0; i < startPos; ++i, column++) {
-            char ch = text.charAt(i);
-            if (ch == '\n') {
-                column = 1;
-                line++;
-            }
-        }
-
-        this.posLine = line;
-        this.posColumn = column;
+        computeRowAndColumn();
 
         StringBuilder buf = new StringBuilder();
-        buf
-                .append("pos ")
+        buf.append("pos ")
                 .append(pos)
                 .append(", line ")
-                .append(line)
+                .append(this.getPosLine())
                 .append(", column ")
-                .append(column);
+                .append(this.getPosColumn());
         if (token != null) {
             if (token.name != null) {
                 buf.append(", token ").append(token.name);
@@ -1394,7 +1382,7 @@ public class Lexer {
                         scanChar();
                         if (ch == '|') {
                             scanChar();
-                            token = Token.QUESBAR;
+                            token = Token.QUESQUESBAR;
                         } else {
                             token = Token.QUESQUES;
                         }
@@ -3064,7 +3052,7 @@ public class Lexer {
         return stringVal;
     }
 
-    private final void stringVal(StringBuffer out) {
+    private final void stringVal(StringBuilder out) {
         if (stringVal != null) {
             out.append(stringVal);
             return;
@@ -3364,7 +3352,7 @@ public class Lexer {
         for (int i = 0; i < startPos; ++i) {
             char ch = text.charAt(i);
             if (ch == '\n') {
-                column = 0;
+                column = 1;
                 line++;
             } else {
                 column++;
@@ -3415,7 +3403,7 @@ public class Lexer {
 
         lexer.nextToken();
 
-        StringBuffer buf = new StringBuffer();
+        StringBuilder buf = new StringBuilder();
 
         for_:
         for (; ; ) {
