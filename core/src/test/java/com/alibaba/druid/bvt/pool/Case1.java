@@ -25,6 +25,7 @@ import junit.framework.TestCase;
 import org.junit.Assert;
 
 import com.alibaba.druid.mock.MockDriver;
+import com.alibaba.druid.pool.DataSourceDisableException;
 import com.alibaba.druid.pool.DruidDataSource;
 import com.alibaba.druid.stat.DruidDataSourceStatManager;
 
@@ -32,18 +33,10 @@ public class Case1 extends PoolTestCase {
     public void test_f() throws Exception {
         final DruidDataSource dataSource = new DruidDataSource();
         dataSource.setTimeBetweenConnectErrorMillis(100);
-
-        final long startTime = System.currentTimeMillis();
-        final long okTime = startTime + 1000 * 1;
-
         dataSource.setDriver(new MockDriver() {
             @Override
             public Connection connect(String url, Properties info) throws SQLException {
-                if (System.currentTimeMillis() < okTime) {
-                    throw new SQLException();
-                }
-
-                return super.connect(url, info);
+                throw new SQLException();
             }
         });
         dataSource.setUrl("jdbc:mock:");
@@ -52,9 +45,15 @@ public class Case1 extends PoolTestCase {
         dataSource.setMaxActive(2);
         dataSource.setMaxIdle(2);
 
-        Connection conn = dataSource.getConnection();
-        conn.close();
+        Exception error = null;
+        try {
+            Connection conn = dataSource.getConnection();
+            conn.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+            error = e;
+        }
 
-        dataSource.close();
+        Assert.assertTrue(error instanceof DataSourceDisableException);
     }
 }
