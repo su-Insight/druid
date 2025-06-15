@@ -9,8 +9,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import com.alibaba.druid.PoolTestCase;
 import org.junit.Assert;
-
-import com.alibaba.druid.pool.DataSourceNotAvailableException;
+import com.alibaba.druid.pool.DataSourceDisableException;
 import com.alibaba.druid.pool.DruidDataSource;
 
 public class FailFastTest extends PoolTestCase {
@@ -68,6 +67,7 @@ public class FailFastTest extends PoolTestCase {
                 try {
                     dataSource.getConnection();
                 } catch (SQLException e) {
+                    e.printStackTrace();
                     errorHolder.set(e);
                 } finally {
                     connectEndLatch.countDown();
@@ -82,7 +82,7 @@ public class FailFastTest extends PoolTestCase {
         latch.countDown();
         connectEndLatch.await(3, TimeUnit.SECONDS);
         SQLException ex = errorHolder.get();
-        Assert.assertTrue(ex instanceof DataSourceNotAvailableException);
+        Assert.assertTrue(ex instanceof DataSourceDisableException);
 
         for (int i = 0; i < 300; ++i) {
             if (!dataSource.isFailContinuous()) {
