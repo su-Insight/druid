@@ -524,6 +524,13 @@ public class MySqlExprParser extends SQLExprParser {
                     return primaryRest(binaryExpr);
                 }
             default:
+                if (lexer.token() == Token.WITH) {
+                    SQLQueryExpr queryExpr = new SQLQueryExpr(
+                        createSelectParser()
+                            .select());
+                    return queryExpr;
+                }
+
                 return super.primary();
         }
 
@@ -539,6 +546,7 @@ public class MySqlExprParser extends SQLExprParser {
         if (lexer.token() == Token.FOR) {
             lexer.nextToken();
             acceptIdentifier("ORDINALITY");
+            column.setOrdinality(true);
         } else {
             boolean nested = name instanceof SQLIdentifierExpr
                     && name.nameHashCode64() == FnvHash.Constants.NESTED;
@@ -648,13 +656,13 @@ public class MySqlExprParser extends SQLExprParser {
                     return primaryRest(expr);
                 }
             } else if (expr instanceof SQLCharExpr) {
-                String text2 = ((SQLCharExpr) expr).getText();
+                StringBuilder text2 = new StringBuilder(((SQLCharExpr) expr).getText());
                 do {
                     String chars = lexer.stringVal();
-                    text2 += chars;
+                    text2.append(chars);
                     lexer.nextToken();
                 } while (lexer.token() == Token.LITERAL_CHARS || lexer.token() == Token.LITERAL_ALIAS);
-                expr = new SQLCharExpr(text2);
+                expr = new SQLCharExpr(text2.toString());
             } else if (expr instanceof SQLVariantRefExpr) {
                 SQLMethodInvokeExpr concat = new SQLMethodInvokeExpr("CONCAT");
                 concat.addArgument(expr);
@@ -1889,7 +1897,19 @@ public class MySqlExprParser extends SQLExprParser {
                         if (lexer.token() == Token.EQ) {
                             lexer.nextToken();
                         }
-                        assignItem = new SQLAssignItem(new SQLIdentifierExpr("CHARACTER SET"), expr());
+                        if (lexer.token() == Token.IDENTIFIER) {
+                            assignItem = new SQLAssignItem(new SQLIdentifierExpr("CHARACTER SET"), new SQLIdentifierExpr(lexer.stringVal()));
+                            lexer.nextToken();
+                        } else if (lexer.token() == Token.LITERAL_ALIAS || lexer.token() == Token.LITERAL_CHARS) {
+                            String charset = lexer.stringVal();
+                            if (charset.startsWith("\"")) {
+                                charset = charset.substring(1, charset.length() - 1);
+                            }
+                            assignItem = new SQLAssignItem(new SQLIdentifierExpr("CHARACTER SET"), new SQLCharExpr(charset));
+                            lexer.nextToken();
+                        } else {
+                            assignItem = new SQLAssignItem(new SQLIdentifierExpr("CHARACTER SET"), expr());
+                        }
                     } else if (lexer.identifierEquals(FnvHash.Constants.COLLATE)) {
                         lexer.nextToken();
                         if (lexer.token() == Token.EQ) {
@@ -1903,8 +1923,19 @@ public class MySqlExprParser extends SQLExprParser {
                     accept(Token.SET);
                     if (lexer.token() == Token.EQ) {
                         lexer.nextToken();
+                    } if (lexer.token() == Token.IDENTIFIER) {
+                        assignItem = new SQLAssignItem(new SQLIdentifierExpr("CHARACTER SET"), new SQLIdentifierExpr(lexer.stringVal()));
+                        lexer.nextToken();
+                    } else if (lexer.token() == Token.LITERAL_ALIAS || lexer.token() == Token.LITERAL_CHARS) {
+                        String charset = lexer.stringVal();
+                        if (charset.startsWith("\"")) {
+                            charset = charset.substring(1, charset.length() - 1);
+                        }
+                        assignItem = new SQLAssignItem(new SQLIdentifierExpr("CHARACTER SET"), new SQLCharExpr(charset));
+                        lexer.nextToken();
+                    } else {
+                        assignItem = new SQLAssignItem(new SQLIdentifierExpr("CHARACTER SET"), expr());
                     }
-                    assignItem = new SQLAssignItem(new SQLIdentifierExpr("CHARACTER SET"), expr());
                 } else if (hash == FnvHash.Constants.DATA ||
                         lexer.token() == Token.INDEX) {
                     // {DATA|INDEX} DIRECTORY [=] 'absolute path to directory'

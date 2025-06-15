@@ -66,6 +66,8 @@ public enum DbType {
 
     starrocks(1L << 43),
 
+    goldendb(1L << 44),
+
     ingres(0),
     cloudscape(0),
     timesten(0),
@@ -117,6 +119,9 @@ public enum DbType {
         }
     }
 
+    public static boolean isPostgreSQLDbStyle(DbType dbType) {
+        return dbType == DbType.postgresql || dbType == DbType.edb || dbType == DbType.greenplum;
+    }
     public final boolean equals(String other) {
         return this == of(other);
     }

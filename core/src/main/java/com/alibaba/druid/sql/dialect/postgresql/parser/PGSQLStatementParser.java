@@ -23,6 +23,7 @@ import com.alibaba.druid.sql.ast.statement.*;
 import com.alibaba.druid.sql.dialect.postgresql.ast.stmt.*;
 import com.alibaba.druid.sql.parser.*;
 import com.alibaba.druid.util.FnvHash;
+import com.alibaba.druid.util.JdbcUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -372,8 +373,17 @@ public class PGSQLStatementParser extends SQLStatementParser {
                 statementList.add(stmt);
                 return true;
             }
+            case END: {
+                PGEndTransactionStatement stmt = parseEnd();
+                statementList.add(stmt);
+                return true;
+            }
             case WITH:
                 statementList.add(parseWith());
+                return true;
+            case DO:
+                PGDoStatement pgDoStatement = parseDo();
+                statementList.add(pgDoStatement);
                 return true;
             default:
                 if (lexer.identifierEquals(FnvHash.Constants.CONNECT)) {
@@ -399,6 +409,91 @@ public class PGSQLStatementParser extends SQLStatementParser {
         return false;
     }
 
+    public PGDoStatement parseDo() {
+        PGDoStatement stmt = new PGDoStatement();
+        stmt.setDbType(dbType);
+
+        accept(Token.DO);
+
+        stmt.setFuncName(this.exprParser.name());
+
+        if (lexer.token() == Token.DECLARE) {
+            parseVariables(stmt);
+        }
+
+        SQLStatement block;
+        if (lexer.token() == Token.BEGIN) {
+            block = this.parseBlock();
+        } else {
+            block = this.parseStatement();
+        }
+        stmt.setBlock(block);
+        if (lexer.token() == Token.IDENTIFIER) {
+            SQLName endFuncName = this.exprParser.name();
+            if (!stmt.getFuncName().equals(endFuncName)) {
+                printError(lexer.token());
+            }
+        }
+        return stmt;
+    }
+
+    public void parseVariables(PGDoStatement stmt) {
+        accept(Token.DECLARE);
+        if (lexer.token() != Token.BEGIN) {
+            // todo: parseVariables
+            throw new ParserException("TODO " + lexer.info());
+        }
+    }
+
+    public SQLBlockStatement parseBlock() {
+        SQLBlockStatement block = new SQLBlockStatement();
+        block.setDbType(dbType);
+        block.setHaveBeginEnd(false);
+        accept(Token.BEGIN);
+        List<SQLStatement> statementList = block.getStatementList();
+        this.parseStatementList(statementList, -1, block);
+        if (lexer.token() != Token.END
+            && statementList.size() > 0
+            && (statementList.get(statementList.size() - 1) instanceof SQLCommitStatement
+            || statementList.get(statementList.size() - 1) instanceof SQLRollbackStatement)) {
+            block.setEndOfCommit(true);
+            return block;
+        }
+        accept(Token.END);
+        return block;
+    }
+
+    @Override
+    public SQLStatement parseIf() {
+        accept(Token.IF);
+        SQLIfStatement stmt = new SQLIfStatement();
+        stmt.setCondition(this.exprParser.expr());
+        accept(Token.THEN);
+        this.parseStatementList(stmt.getStatements(), -1, stmt);
+        while (lexer.token() == Token.ELSE) {
+            lexer.nextToken();
+            if (lexer.token() == Token.IF) {
+                lexer.nextToken();
+                SQLIfStatement.ElseIf elseIf = new SQLIfStatement.ElseIf();
+                elseIf.setCondition(this.exprParser.expr());
+                elseIf.setParent(stmt);
+                accept(Token.THEN);
+                this.parseStatementList(elseIf.getStatements(), -1, elseIf);
+                stmt.getElseIfList().add(elseIf);
+            } else {
+                SQLIfStatement.Else elseItem = new SQLIfStatement.Else();
+                this.parseStatementList(elseItem.getStatements(), -1, elseItem);
+                stmt.setElseItem(elseItem);
+                break;
+            }
+        }
+        accept(Token.END);
+        accept(Token.IF);
+        accept(Token.SEMI);
+        stmt.setAfterSemi(true);
+        return stmt;
+    }
+
     protected PGStartTransactionStatement parseBegin() {
         PGStartTransactionStatement stmt = new PGStartTransactionStatement();
         if (lexer.token() == Token.START) {
@@ -406,11 +501,18 @@ public class PGSQLStatementParser extends SQLStatementParser {
             acceptIdentifier("TRANSACTION");
         } else {
             accept(Token.BEGIN);
+            stmt.setUseBegin(true);
         }
 
         return stmt;
     }
 
+    @Override
+    public PGEndTransactionStatement parseEnd() {
+        PGEndTransactionStatement stmt = new PGEndTransactionStatement();
+        accept(Token.END);
+        return stmt;
+    }
     public SQLStatement parseAlter() {
         Lexer.SavePoint mark = lexer.mark();
         accept(Token.ALTER);
@@ -474,7 +576,7 @@ public class PGSQLStatementParser extends SQLStatementParser {
         }
 
         SQLColumnDefinition column = this.exprParser.parseColumn();
-
+        column.setDbType(dbType);
         SQLAlterTableAlterColumn alterColumn = new SQLAlterTableAlterColumn();
         alterColumn.setColumn(column);
 
@@ -507,7 +609,7 @@ public class PGSQLStatementParser extends SQLStatementParser {
 
     public SQLStatement parseShow() {
         accept(Token.SHOW);
-        PGShowStatement stmt = new PGShowStatement();
+        PGShowStatement stmt = new PGShowStatement(dbType);
         switch (lexer.token()) {
             case ALL:
                 stmt.setExpr(new SQLIdentifierExpr(Token.ALL.name()));
@@ -566,6 +668,12 @@ public class PGSQLStatementParser extends SQLStatementParser {
             lexer.nextToken();
             values.add(this.exprParser.primary());
             lexer.nextToken();
+        } else if (JdbcUtils.isPgsqlDbType(dbType) && ("schema".equalsIgnoreCase(parameter) || "names".equalsIgnoreCase(parameter))) {
+            paramExpr = new SQLIdentifierExpr(parameter);
+            lexer.nextToken();
+            String value = lexer.stringVal();
+            values.add(new SQLCharExpr(value));
+            lexer.nextToken();
         } else {
             paramExpr = new SQLIdentifierExpr(parameter);
             lexer.nextToken();
@@ -601,6 +709,7 @@ public class PGSQLStatementParser extends SQLStatementParser {
             valueExpr = listExpr;
         }
         SQLSetStatement stmt = new SQLSetStatement(paramExpr, valueExpr, dbType);
+        stmt.setUseSet(true);
         stmt.setOption(option);
         return stmt;
     }
@@ -754,6 +863,14 @@ public class PGSQLStatementParser extends SQLStatementParser {
         Lexer.SavePoint mark = lexer.mark();
         String strVal = lexer.stringVal();
         for (; ; ) {
+            if (Token.SEMI.equals(lexer.token())) {
+                stmt.setAfterSemi(true);
+                return stmt;
+            }
+            if (lexer.isEOF()) {
+                lexer.nextToken();
+                return stmt;
+            }
             if (strVal.equalsIgnoreCase("FULL")) {
                 stmt.setFull(true);
                 lexer.nextToken();
@@ -857,6 +974,28 @@ public class PGSQLStatementParser extends SQLStatementParser {
             lexer.nextToken();
             stmt.setResetParameterName(this.exprParser.identifier());
         }
+        return stmt;
+    }
+
+    @Override
+    public SQLStatement parseCreateUser() {
+        accept(Token.CREATE);
+        accept(Token.USER);
+        SQLCreateUserStatement stmt = new SQLCreateUserStatement();
+        stmt.setDbType(dbType);
+        stmt.setUser(this.exprParser.name());
+        if (lexer.token() == Token.WITH) {
+            accept(Token.WITH);
+            stmt.setPostgresqlWith(true);
+        }
+        if (lexer.identifierEquals("ENCRYPTED")) {
+            stmt.setPostgresqlEncrypted(true);
+            lexer.nextToken();
+        }
+        if (lexer.identifierEquals("PASSWORD")) {
+            lexer.nextToken();
+        }
+        stmt.setPassword(this.exprParser.primary());
         return stmt;
     }
 }
