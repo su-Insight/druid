@@ -1253,6 +1253,7 @@ public class OracleStatementParser extends SQLStatementParser {
         }
 
         SQLSetStatement stmt = new SQLSetStatement(dbType);
+        stmt.setUseSet(true);
         parseAssignItems(stmt.getItems(), stmt);
 
         stmt.putAttribute("parser.set", Boolean.TRUE);
@@ -2057,6 +2058,14 @@ public class OracleStatementParser extends SQLStatementParser {
                 if (lexer.token() == Token.KEY) {
                     name = new SQLIdentifierExpr(lexer.stringVal());
                     lexer.nextToken();
+                } else if (lexer.identifierEquals("ENUM")) {
+                    name = this.exprParser.name();
+                    SQLListExpr enumList = (SQLListExpr) this.exprParser.expr();
+                    parameter.setName(name);
+                    dataType = new SQLDataTypeImpl("ENUM", enumList);
+                    parameter.setDataType(dataType);
+                    parameters.add(parameter);
+                    break;
                 } else {
                     name = this.exprParser.name();
                 }
