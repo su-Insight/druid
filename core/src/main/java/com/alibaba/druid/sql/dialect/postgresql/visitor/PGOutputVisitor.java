@@ -40,12 +40,12 @@ import java.util.List;
 import java.util.Set;
 
 public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor, OracleASTVisitor {
-    public PGOutputVisitor(Appendable appender) {
+    public PGOutputVisitor(StringBuilder appender) {
         super(appender);
         this.dbType = DbType.postgresql;
     }
 
-    public PGOutputVisitor(Appendable appender, boolean parameterized) {
+    public PGOutputVisitor(StringBuilder appender, boolean parameterized) {
         super(appender, parameterized);
         this.dbType = DbType.postgresql;
     }
@@ -547,7 +547,17 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
 
     @Override
     public boolean visit(PGStartTransactionStatement x) {
+        if (x.isUseBegin()) {
+            print0(ucase ? "BFGIN" : "begin");
+            return false;
+        }
         print0(ucase ? "START TRANSACTION" : "start transaction");
+        return false;
+    }
+
+    @Override
+    public boolean visit(PGEndTransactionStatement x) {
+        print0(ucase ? "END" : "end");
         return false;
     }
 
@@ -1802,18 +1812,18 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
             print0(ucase ? "CURSOR_SPECIFIC_SEGMENT" : "cursor_specific_segment");
         }
 
-        if (x.getParallel() == Boolean.TRUE) {
+        if (Boolean.TRUE.equals(x.getParallel())) {
             println();
             print0(ucase ? "PARALLEL" : "parallel");
-        } else if (x.getParallel() == Boolean.FALSE) {
+        } else if (Boolean.FALSE.equals(x.getParallel())) {
             println();
             print0(ucase ? "NOPARALLEL" : "noparallel");
         }
 
-        if (x.getCache() == Boolean.TRUE) {
+        if (Boolean.TRUE.equals(x.getCache())) {
             println();
             print0(ucase ? "CACHE" : "cache");
-        } else if (x.getCache() == Boolean.FALSE) {
+        } else if (Boolean.FALSE.equals(x.getCache())) {
             println();
             print0(ucase ? "NOCACHE" : "nocache");
         }
@@ -2286,7 +2296,7 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
                 print0(", ");
             }
             SQLExpr type = types.get(i);
-            if (Boolean.TRUE == type.getAttribute("ONLY")) {
+            if (Boolean.TRUE.equals(type.getAttribute("ONLY"))) {
                 print0(ucase ? "ONLY " : "only ");
             }
             type.accept(this);
