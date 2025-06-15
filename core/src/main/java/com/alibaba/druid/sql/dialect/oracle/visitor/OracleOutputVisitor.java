@@ -20,8 +20,10 @@ import com.alibaba.druid.sql.ast.*;
 import com.alibaba.druid.sql.ast.expr.*;
 import com.alibaba.druid.sql.ast.statement.*;
 import com.alibaba.druid.sql.ast.statement.SQLJoinTableSource.JoinType;
+import com.alibaba.druid.sql.dialect.mysql.ast.statement.MySqlCreateTableStatement;
 import com.alibaba.druid.sql.dialect.oracle.ast.OracleDataTypeIntervalDay;
 import com.alibaba.druid.sql.dialect.oracle.ast.OracleDataTypeIntervalYear;
+import com.alibaba.druid.sql.dialect.oracle.ast.OraclePartitionSingle;
 import com.alibaba.druid.sql.dialect.oracle.ast.clause.*;
 import com.alibaba.druid.sql.dialect.oracle.ast.clause.ModelClause.*;
 import com.alibaba.druid.sql.dialect.oracle.ast.expr.*;
@@ -47,12 +49,12 @@ public class OracleOutputVisitor extends SQLASTOutputVisitor implements OracleAS
         this.dbType = DbType.oracle;
     }
 
-    public OracleOutputVisitor(Appendable appender) {
+    public OracleOutputVisitor(StringBuilder appender) {
         this(appender, true);
     }
 
-    public OracleOutputVisitor(Appendable appender, boolean printPostSemi) {
-        super(appender);
+    public OracleOutputVisitor(StringBuilder appender, boolean printPostSemi) {
+        super(appender, DbType.oracle);
         this.printPostSemi = printPostSemi;
     }
 
@@ -98,6 +100,9 @@ public class OracleOutputVisitor extends SQLASTOutputVisitor implements OracleAS
 
         if (x.isWindowingPreceding()) {
             print0(ucase ? " PRECEDING" : " preceding");
+        }
+        if (x.isWindowingBetweenEndFollowing()) {
+            print0(ucase ? " FOLLOWING" : " following");
         }
 
         print(')');
@@ -168,16 +173,11 @@ public class OracleOutputVisitor extends SQLASTOutputVisitor implements OracleAS
     }
 
     public boolean visit(OracleIntervalExpr x) {
-        SQLExpr value = x.getValue();
-        if (value instanceof SQLLiteralExpr || value instanceof SQLVariantRefExpr) {
+        if (x.getValue() instanceof SQLLiteralExpr || x.getValue() instanceof SQLVariantRefExpr) {
             print0(ucase ? "INTERVAL " : "interval ");
-            value.accept(this);
-            print(' ');
-        } else {
-            print('(');
-            value.accept(this);
-            print0(") ");
         }
+        x.getValue().accept(this);
+        print(' ');
 
         print0(x.getType().name());
 
@@ -288,6 +288,10 @@ public class OracleOutputVisitor extends SQLASTOutputVisitor implements OracleAS
                 x.getCondition().accept(this);
                 decrementIndent();
                 print(' ');
+                if (x.getAfterCommentsDirect() != null) {
+                    printAfterComments(x.getAfterCommentsDirect());
+                    println();
+                }
             }
 
             if (x.getUsing().size() > 0) {
@@ -343,7 +347,9 @@ public class OracleOutputVisitor extends SQLASTOutputVisitor implements OracleAS
         if (isPrettyFormat() && x.hasBeforeComment()) {
             printlnComments(x.getBeforeCommentsDirect());
         }
-
+        if (x.isParenthesized()) {
+            print('(');
+        }
         print0(ucase ? "SELECT " : "select ");
 
         if (x.getHintsSize() > 0) {
@@ -360,52 +366,21 @@ public class OracleOutputVisitor extends SQLASTOutputVisitor implements OracleAS
         }
 
         printSelectList(x.getSelectList());
-
-        if (x.getInto() != null) {
-            println();
-            print0(ucase ? "INTO " : "into ");
-            x.getInto().accept(this);
-        }
-
-        println();
-        print0(ucase ? "FROM " : "from ");
-        if (x.getFrom() == null) {
-            print0(ucase ? "DUAL" : "dual");
-        } else {
-            x.getFrom().accept(this);
-        }
-
-        if (x.getWhere() != null) {
-            printWhere(x.getWhere());
-        }
-
+        printInto(x);
+        printFrom(x);
+        printWhere(x);
         printHierarchical(x);
-
-        if (x.getGroupBy() != null) {
-            println();
-            x.getGroupBy().accept(this);
-        }
-
-        if (x.getModelClause() != null) {
-            println();
-            x.getModelClause().accept(this);
-        }
-
-        SQLOrderBy orderBy = x.getOrderBy();
-        if (orderBy != null) {
-            println();
-            orderBy.accept(this);
-        }
-
+        printGroupBy(x);
+        printModel(x);
+        printOrderBy(x);
         printFetchFirst(x);
 
         if (x.isForUpdate()) {
             println();
             print0(ucase ? "FOR UPDATE" : "for update");
             if (x.getForUpdateOfSize() > 0) {
-                print('(');
+                print(" OF ");
                 printAndAccept(x.getForUpdateOf(), ", ");
-                print(')');
             }
 
             if (x.isNoWait()) {
@@ -418,7 +393,45 @@ public class OracleOutputVisitor extends SQLASTOutputVisitor implements OracleAS
             }
         }
 
+        if (x.isParenthesized()) {
+            print(')');
+        }
         return false;
+    }
+
+    @Override
+    protected void printFrom(SQLSelectQueryBlock x) {
+        println();
+        print0(ucase ? "FROM " : "from ");
+        if (x.getCommentsAfterFrom() != null) {
+            printAfterComments(x.getCommentsAfterFrom());
+            println();
+        }
+        SQLTableSource from = x.getFrom();
+        if (from == null) {
+            print0(ucase ? "DUAL" : "dual");
+        } else {
+            from.accept(this);
+        }
+    }
+
+    private void printInto(OracleSelectQueryBlock x) {
+        SQLExprTableSource into = x.getInto();
+        if (into == null) {
+            return;
+        }
+        println();
+        print0(ucase ? "INTO " : "into ");
+        into.accept(this);
+    }
+
+    private void printModel(OracleSelectQueryBlock x) {
+        ModelClause model = x.getModelClause();
+        if (model == null) {
+            return;
+        }
+        println();
+        model.accept(this);
     }
 
     public boolean visit(CheckOption x) {
@@ -500,7 +513,10 @@ public class OracleOutputVisitor extends SQLASTOutputVisitor implements OracleAS
             print(' ');
             x.getSampleClause().accept(this);
         }
-
+        if (x.getAfterCommentsDirect() != null) {
+            printAfterComments(x.getAfterCommentsDirect());
+            println();
+        }
         if (x.getPivot() != null) {
             println();
             x.getPivot().accept(this);
@@ -1093,50 +1109,6 @@ public class OracleOutputVisitor extends SQLASTOutputVisitor implements OracleAS
     }
 
     @Override
-    public boolean visit(OracleExceptionStatement.Item x) {
-        print0(ucase ? "WHEN " : "when ");
-        x.getWhen().accept(this);
-        print0(ucase ? " THEN" : " then");
-
-        this.indentCount++;
-        if (x.getStatements().size() > 1) {
-            println();
-        } else {
-            if (x.getStatements().size() == 1
-                    && x.getStatements().get(0) instanceof SQLIfStatement) {
-                println();
-            } else {
-                print(' ');
-            }
-        }
-
-        for (int i = 0, size = x.getStatements().size(); i < size; ++i) {
-            if (i != 0 && size > 1) {
-                println();
-            }
-            SQLStatement stmt = x.getStatements().get(i);
-            stmt.accept(this);
-        }
-
-        this.indentCount--;
-        return false;
-    }
-
-    @Override
-    public boolean visit(OracleExceptionStatement x) {
-        print0(ucase ? "EXCEPTION" : "exception");
-        this.indentCount++;
-        List<OracleExceptionStatement.Item> items = x.getItems();
-        for (int i = 0, size = items.size(); i < size; ++i) {
-            println();
-            OracleExceptionStatement.Item item = items.get(i);
-            item.accept(this);
-        }
-        this.indentCount--;
-        return false;
-    }
-
-    @Override
     public boolean visit(OracleArgumentExpr x) {
         print0(x.getArgumentName());
         print0(" => ");
@@ -1434,6 +1406,10 @@ public class OracleOutputVisitor extends SQLASTOutputVisitor implements OracleAS
         x.getIndex().accept(this);
         print0(ucase ? " IN " : " in ");
 
+        if (x.isReverse()) {
+            print0(ucase ? "REVERSE " : "reverse ");
+        }
+
         SQLExpr range = x.getRange();
         range.accept(this);
 
@@ -1487,7 +1463,7 @@ public class OracleOutputVisitor extends SQLASTOutputVisitor implements OracleAS
 
     @Override
     public boolean visit(SQLIfStatement.ElseIf x) {
-        print0(ucase ? "ELSE IF " : "else if ");
+        print0(ucase ? "ELSIF " : "elsif ");
         x.getCondition().accept(this);
         print0(ucase ? " THEN" : " then");
         this.indentCount++;
@@ -1667,7 +1643,7 @@ public class OracleOutputVisitor extends SQLASTOutputVisitor implements OracleAS
             print0(ucase ? "CURSOR_SPECIFIC_SEGMENT" : "cursor_specific_segment");
         }
 
-        if (x.getParallel() == Boolean.TRUE) {
+        if (Boolean.TRUE.equals(x.getParallel())) {
             println();
             print0(ucase ? "PARALLEL" : "parallel");
 
@@ -1676,15 +1652,15 @@ public class OracleOutputVisitor extends SQLASTOutputVisitor implements OracleAS
                 print(' ');
                 printExpr(parallelValue);
             }
-        } else if (x.getParallel() == Boolean.FALSE) {
+        } else if (Boolean.FALSE.equals(x.getParallel())) {
             println();
             print0(ucase ? "NOPARALLEL" : "noparallel");
         }
 
-        if (x.getCache() == Boolean.TRUE) {
+        if (Boolean.TRUE.equals(x.getCache())) {
             println();
             print0(ucase ? "CACHE" : "cache");
-        } else if (x.getCache() == Boolean.FALSE) {
+        } else if (Boolean.FALSE.equals(x.getCache())) {
             println();
             print0(ucase ? "NOCACHE" : "nocache");
         }
@@ -1707,11 +1683,7 @@ public class OracleOutputVisitor extends SQLASTOutputVisitor implements OracleAS
             print0(ucase ? "MONITORING" : "monitoring");
         }
 
-        if (x.getPartitioning() != null) {
-            println();
-            print0(ucase ? "PARTITION BY " : "partition by ");
-            x.getPartitioning().accept(this);
-        }
+        printPartitionBy(x);
 
         if (x.getCluster() != null) {
             println();
@@ -2071,38 +2043,7 @@ public class OracleOutputVisitor extends SQLASTOutputVisitor implements OracleAS
     }
 
     @Override
-    public boolean visit(SQLCreateFunctionStatement x) {
-        boolean create = x.isCreate();
-        if (!create) {
-            print0(ucase ? "FUNCTION " : "function ");
-        } else if (x.isOrReplace()) {
-            print0(ucase ? "CREATE OR REPLACE FUNCTION " : "create or replace function ");
-        } else {
-            print0(ucase ? "CREATE FUNCTION " : "create function ");
-        }
-        x.getName().accept(this);
-
-        int paramSize = x.getParameters().size();
-
-        if (paramSize > 0) {
-            print0(" (");
-            this.indentCount++;
-            println();
-
-            for (int i = 0; i < paramSize; ++i) {
-                if (i != 0) {
-                    print0(", ");
-                    println();
-                }
-                SQLParameter param = x.getParameters().get(i);
-                param.accept(this);
-            }
-
-            this.indentCount--;
-            println();
-            print(')');
-        }
-
+    protected void printCreateFunctionBody(SQLCreateFunctionStatement x) {
         String wrappedSource = x.getWrappedSource();
         if (wrappedSource != null) {
             print0(ucase ? " WRAPPED " : " wrapped ");
@@ -2111,12 +2052,10 @@ public class OracleOutputVisitor extends SQLASTOutputVisitor implements OracleAS
             if (x.isAfterSemi()) {
                 print(';');
             }
-            return false;
+            return;
         }
 
-        println();
-        print(ucase ? "RETURN " : "return ");
-        x.getReturnDataType().accept(this);
+        printCreateFunctionReturns(x);
 
         if (x.isPipelined()) {
             print(ucase ? "PIPELINED " : "pipelined ");
@@ -2134,7 +2073,7 @@ public class OracleOutputVisitor extends SQLASTOutputVisitor implements OracleAS
 
         SQLStatement block = x.getBlock();
 
-        if (block != null && !create) {
+        if (block != null && !x.isCreate()) {
             println();
             println("IS");
         } else {
@@ -2152,7 +2091,7 @@ public class OracleOutputVisitor extends SQLASTOutputVisitor implements OracleAS
             print0(ucase ? "LANGUAGE JAVA NAME '" : "language java name '");
             print0(javaCallSpec);
             print('\'');
-            return false;
+            return;
         }
 
         if (x.isParallelEnable()) {
@@ -2174,7 +2113,6 @@ public class OracleOutputVisitor extends SQLASTOutputVisitor implements OracleAS
         if (block != null) {
             block.accept(this);
         }
-        return false;
     }
 
     @Override
@@ -2712,6 +2650,8 @@ public class OracleOutputVisitor extends SQLASTOutputVisitor implements OracleAS
         if (parameters.size() > 0) {
             if (x.isParen()) {
                 print(" (");
+            } else if (x.getParameters() != null && x.getParameters().size() > 0 && "ENUM".equals(x.getParameters().get(0).getDataType().getName())) {
+                print0(ucase ? " AS" : " as");
             } else {
                 print0(ucase ? " IS" : " is");
             }
@@ -2744,12 +2684,20 @@ public class OracleOutputVisitor extends SQLASTOutputVisitor implements OracleAS
 
             if (x.isParen()) {
                 print0(")");
+            } else if (x.getParameters() != null && x.getParameters().size() > 0 && "ENUM".equals(x.getParameters().get(0).getDataType().getName())) {
+                //do nothing
             } else {
                 print0("END");
             }
         } else if (tableOf != null) {
             print0(ucase ? " AS TABLE OF " : " as table of ");
             tableOf.accept(this);
+
+            SQLDataType indexBy = x.getIndexBy();
+            if (indexBy != null) {
+                print0(ucase ? " INDEX BY " : " index by ");
+                indexBy.accept(this);
+            }
         } else if (x.getVarraySizeLimit() != null) {
             print0(ucase ? " VARRAY (" : " varray (");
             x.getVarraySizeLimit().accept(this);
@@ -2803,7 +2751,7 @@ public class OracleOutputVisitor extends SQLASTOutputVisitor implements OracleAS
                 print0(", ");
             }
             SQLExpr type = types.get(i);
-            if (Boolean.TRUE == type.getAttribute("ONLY")) {
+            if (Boolean.TRUE.equals(type.getAttribute("ONLY"))) {
                 print0(ucase ? "ONLY " : "only ");
             }
             type.accept(this);
@@ -2909,6 +2857,142 @@ public class OracleOutputVisitor extends SQLASTOutputVisitor implements OracleAS
         incrementIndent();
         printOracleSegmentAttributes(x);
         decrementIndent();
+        return false;
+    }
+
+    @Override
+    public void endVisit(SQLDropUserStatement x) {
+        super.endVisit(x);
+    }
+
+    @Override
+    public boolean visit(SQLDropUserStatement x) {
+        print0(ucase ? "DROP USER " : "drop user ");
+        if (x.isIfExists()) {
+            print0(ucase ? "IF EXISTS " : "if exists ");
+        }
+        printAndAccept(x.getUsers(), ", ");
+        if (x.isCascade()) {
+            print0(ucase ? " CASCADE" : " cascade");
+        }
+        return false;
+    }
+
+    @Override
+    public boolean visit(OracleAlterPackageStatement x) {
+        print0(ucase ? "ALTER PACKAGE " : "alter package ");
+        x.getName().accept(this);
+
+        if (x.isCompile()) {
+            print0(ucase ? " COMPILE" : " compile");
+        }
+
+        if (x.isPack()) {
+            print0(ucase ? " PACKAGE" : " package");
+        }
+
+        if (x.isBody()) {
+            print0(ucase ? " BODY" : " body");
+        }
+
+        return false;
+    }
+
+    @Override
+    public boolean visit(OracleDropPackageStatement x) {
+        print0(ucase ? "DROP PACKAGE " : "drop package ");
+        x.getName().accept(this);
+        if (x.isBody()) {
+            print0(ucase ? "BODY " : "body ");
+        }
+        return false;
+    }
+
+    @Override
+    public boolean visit(OracleCreateTableSpaceStatement x) {
+        print0(ucase ? x.getSql().toUpperCase() : x.getSql().toLowerCase());
+        return false;
+    }
+
+    @Override
+    public boolean visit(SQLPartitionSingle x) {
+        if (x instanceof OraclePartitionSingle) {
+            return visit((OraclePartitionSingle) x);
+        }
+        return super.visit(x);
+    }
+
+    public boolean visit(OraclePartitionSingle x) {
+        boolean isDbPartiton = false, isTbPartition = false;
+        final SQLObject parent = x.getParent();
+        if (parent != null) {
+            final SQLObject parent2 = parent.getParent();
+            if (parent2 instanceof MySqlCreateTableStatement) {
+                MySqlCreateTableStatement stmt = (MySqlCreateTableStatement) parent2;
+                isDbPartiton = parent == stmt.getDbPartitionBy();
+                isTbPartition = parent == stmt.getTablePartitionBy();
+            }
+        }
+
+        if (isDbPartiton) {
+            print0(ucase ? "DBPARTITION " : "dbpartition ");
+        } else if (isTbPartition) {
+            print0(ucase ? "TBPARTITION " : "tbpartition ");
+        } else {
+            print0(ucase ? "PARTITION " : "partition ");
+        }
+        x.getName().accept(this);
+        if (x.getValues() != null) {
+            print(' ');
+            x.getValues().accept(this);
+        }
+
+        this.indentCount++;
+        printOracleSegmentAttributes(x);
+        this.indentCount--;
+        if (x.getSubPartitionsCount() != null) {
+            this.indentCount++;
+            println();
+            print0(ucase ? "SUBPARTITIONS " : "subpartitions ");
+            x.getSubPartitionsCount().accept(this);
+            this.indentCount--;
+        }
+
+        if (x.getSubPartitions().size() > 0) {
+            print(" (");
+            this.indentCount++;
+            for (int i = 0; i < x.getSubPartitions().size(); ++i) {
+                if (i != 0) {
+                    print(',');
+                }
+                println();
+                x.getSubPartitions().get(i).accept(this);
+            }
+            this.indentCount--;
+            println();
+            print(')');
+        }
+
+        SQLExpr locality = x.getLocality();
+        if (locality != null) {
+            print(ucase ? " LOCALITY = " : " locality = ");
+            locality.accept(this);
+        }
+
+        return false;
+    }
+
+    @Override
+    public boolean visit(SQLMergeStatement.WhenDelete x) {
+        print0(ucase ? "DELETE" : "delete");
+        if (x.isNot()) {
+            print0(ucase ? " NOT MATCHED" : " not matched");
+        }
+        SQLExpr where = x.getWhere();
+        if (where != null) {
+            print0(ucase ? " WHERE " : " where");
+            printExpr(where, parameterized);
+        }
         return false;
     }
 }

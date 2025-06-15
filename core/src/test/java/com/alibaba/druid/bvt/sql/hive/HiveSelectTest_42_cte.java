@@ -61,29 +61,29 @@ public class HiveSelectTest_42_cte extends TestCase {
                 "\t, if(ver IS NOT NULL, ver, 'all') AS dycg_ver\n" +
                 "\t, if(machine_dc IS NOT NULL, machine_dc, 'all') AS machine_dc\n" +
                 "\t, if(game_id IS NOT NULL, game_id, 'all') AS game_id\n" +
-                "\t, sum(CASE \n" +
+                "\t, sum(CASE\n" +
                 "\t\tWHEN current_step = 6\n" +
                 "\t\t\tOR current_step = 7\n" +
                 "\t\tTHEN 1\n" +
                 "\t\tELSE 0\n" +
                 "\tEND) AS reach_game_process_cnt\n" +
-                "\t, sum(CASE \n" +
+                "\t, sum(CASE\n" +
                 "\t\tWHEN current_step = 5\n" +
                 "\t\t\tOR current_step = 6\n" +
                 "\t\t\tOR current_step = 7\n" +
                 "\t\tTHEN 1\n" +
                 "\t\tELSE 0\n" +
                 "\tEND) AS tot_reach_game_process_cnt\n" +
-                "\t, round(1 - sum(CASE \n" +
+                "\t, round(1 - (sum(CASE\n" +
                 "\t\tWHEN current_step = 5 THEN 1\n" +
                 "\t\tELSE 0\n" +
-                "\tEND) / sum(CASE \n" +
+                "\tEND) / sum(CASE\n" +
                 "\t\tWHEN current_step = 5\n" +
                 "\t\t\tOR current_step = 6\n" +
                 "\t\t\tOR current_step = 7\n" +
                 "\t\tTHEN 1\n" +
                 "\t\tELSE 0\n" +
-                "\tEND), 4) AS reach_game_process_rate\n" +
+                "\tEND)), 4) AS reach_game_process_rate\n" +
                 "\t, from_unixtime(unix_timestamp(CAST(${dt_hour} AS string), 'yyyyMMddHH'), 'yyyy-MM-dd') AS dt\n" +
                 "\t, substring(${dt_hour}, 9, 2) AS `hour`\n" +
                 "FROM dycg_perform_startgametaketimelog\n" +

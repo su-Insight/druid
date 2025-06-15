@@ -15,17 +15,18 @@
  */
 package com.alibaba.druid.sql.dialect.phoenix.visitor;
 
+import com.alibaba.druid.DbType;
 import com.alibaba.druid.sql.visitor.SQLASTOutputVisitor;
 
 /**
  * Created by wenshao on 16/9/13.
  */
 public class PhoenixOutputVisitor extends SQLASTOutputVisitor implements PhoenixASTVisitor {
-    public PhoenixOutputVisitor(Appendable appender) {
-        super(appender);
+    public PhoenixOutputVisitor(StringBuilder appender) {
+    super(appender, DbType.phoenix);
     }
 
-    public PhoenixOutputVisitor(Appendable appender, boolean parameterized) {
-        super(appender, parameterized);
+    public PhoenixOutputVisitor(StringBuilder appender, boolean parameterized) {
+        super(appender, DbType.phoenix, parameterized);
     }
 }

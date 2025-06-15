@@ -59,7 +59,13 @@ public class WallFilter extends FilterAdapter implements WallFilterMBean {
     public static final String ATTR_UPDATE_CHECK_ITEMS = "wall.updateCheckItems";
 
     public WallFilter() {
-        configFromProperties(System.getProperties());
+        this(System.getProperties());
+    }
+
+    public WallFilter(final Properties properties) {
+        if (properties != null) {
+            configFromProperties(properties);
+        }
     }
 
     @Override
@@ -101,8 +107,26 @@ public class WallFilter extends FilterAdapter implements WallFilterMBean {
             dbTypeName = JdbcUtils.getDbType(dataSource.getUrl(), null);
         }
 
-        DbType dbType = DbType.of(this.dbTypeName);
+        provider = initWallProvider(dataSource, dbTypeName, config);
+        this.config = provider.getConfig();
+        provider.setName(dataSource.getName());
+        this.inited = true;
+    }
 
+    protected WallProvider initWallProvider(DataSourceProxy dataSource, String dbTypeName, WallConfig config) {
+        return initWallProviderInternal(dataSource, dbTypeName, config);
+    }
+
+    static WallProvider initWallProviderInternal(DataSourceProxy dataSource, String dbTypeName, WallConfig config) {
+        WallProvider provider = null;
+        DbType dbType = DbType.of(dbTypeName);
+        if (dbType == null) {
+            provider = initWallProviderWithSPI(dataSource, config, dbType);
+            if (provider == null) {
+                throw new IllegalStateException("dbType not support : " + dbTypeName + ", url " + dataSource.getUrl());
+            }
+            return provider;
+        }
         switch (dbType) {
             case mysql:
             case oceanbase:
@@ -110,8 +134,11 @@ public class WallFilter extends FilterAdapter implements WallFilterMBean {
             case mariadb:
             case tidb:
             case h2:
+            case lealone:
             case presto:
             case trino:
+            case supersql:
+            case polardbx:
                 if (config == null) {
                     config = new WallConfig(MySqlWallProvider.DEFAULT_CONFIG_DIR);
                 }
@@ -163,17 +190,37 @@ public class WallFilter extends FilterAdapter implements WallFilterMBean {
                 break;
             case clickhouse:
                 if (config == null) {
-                    config = new WallConfig(ClickhouseWallProvider.DEFAULT_CONFIG_DIR);
+                    config = new WallConfig(CKWallProvider.DEFAULT_CONFIG_DIR);
                 }
-                provider = new ClickhouseWallProvider(config);
+                provider = new CKWallProvider(config);
                 break;
             default:
-                throw new IllegalStateException("dbType not support : " + dbType + ", url " + dataSource.getUrl());
+                provider = initWallProviderWithSPI(dataSource, config, dbType);
+                if (provider == null) {
+                    throw new IllegalStateException("dbType not support : " + dbType + ", url " + dataSource.getUrl());
+                }
         }
+        return provider;
+    }
 
-        provider.setName(dataSource.getName());
-
-        this.inited = true;
+    static WallProvider initWallProviderWithSPI(DataSourceProxy dataSource, WallConfig config, DbType dbType) {
+        List<WallProviderCreator> wallProviderCreatorList = new ArrayList<>();
+        ServiceLoader<WallProviderCreator> providerCreators = ServiceLoader.load(WallProviderCreator.class);
+        providerCreators.forEach((wallProviderCreator) -> {
+            wallProviderCreatorList.add(wallProviderCreator);
+        });
+        //sort wallProviderCreatorList
+        Collections.sort(wallProviderCreatorList, (o1, o2) -> {
+            return Integer.compare(o1.getOrder(), o2.getOrder());
+        });
+        for (WallProviderCreator providerCreator : providerCreators) {
+            WallProvider wallProvider = providerCreator.createWallConfig(dataSource, config, dbType);
+            if (wallProvider != null) {
+                LOG.debug("use wallProvider " + wallProvider.getClass().getName() + " from " + providerCreator.getClass().getName());
+                return wallProvider;
+            }
+        }
+        return null;
     }
 
     public String getDbType() {
@@ -239,6 +286,9 @@ public class WallFilter extends FilterAdapter implements WallFilterMBean {
     }
 
     public String getTenantColumn() {
+        if (config == null) {
+            return null;
+        }
         return this.config.getTenantColumn();
     }
 

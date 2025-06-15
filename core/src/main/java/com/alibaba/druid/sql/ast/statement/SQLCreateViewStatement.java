@@ -27,6 +27,7 @@ import java.util.List;
 public class SQLCreateViewStatement extends SQLStatementImpl implements SQLCreateStatement {
     private boolean orReplace;
     private boolean force;
+    private boolean temporary;
     // protected SQLName   name;
     protected SQLSelect subQuery;
     protected boolean ifNotExists;
@@ -43,6 +44,7 @@ public class SQLCreateViewStatement extends SQLStatementImpl implements SQLCreat
     private boolean withCascaded;
     private boolean withLocal;
     private boolean withReadOnly;
+    private boolean global;
 
     private SQLLiteralExpr comment;
 
@@ -53,6 +55,9 @@ public class SQLCreateViewStatement extends SQLStatementImpl implements SQLCreat
     protected boolean onCluster;
     private SQLName to;
 
+    // bigquery
+    protected List<SQLAssignItem> options = new ArrayList<>();
+
     private SQLBlockStatement script;
 
     public SQLCreateViewStatement() {
@@ -60,6 +65,14 @@ public class SQLCreateViewStatement extends SQLStatementImpl implements SQLCreat
 
     public SQLCreateViewStatement(DbType dbType) {
         super(dbType);
+    }
+
+    public boolean isGlobal() {
+        return global;
+    }
+
+    public void setGlobal(boolean global) {
+        this.global = global;
     }
 
     public String computeName() {
@@ -232,6 +245,14 @@ public class SQLCreateViewStatement extends SQLStatementImpl implements SQLCreat
         this.force = force;
     }
 
+    public boolean isTemporary() {
+        return temporary;
+    }
+
+    public void setTemporary(boolean temporary) {
+        this.temporary = temporary;
+    }
+
     @Override
     protected void accept0(SQLASTVisitor visitor) {
         if (visitor.visit(this)) {
@@ -395,6 +416,7 @@ public class SQLCreateViewStatement extends SQLStatementImpl implements SQLCreat
         x.withCascaded = withCascaded;
         x.withLocal = withLocal;
         x.withReadOnly = withReadOnly;
+        x.global = global;
 
         if (comment != null) {
             x.setComment(comment.clone());
@@ -414,5 +436,9 @@ public class SQLCreateViewStatement extends SQLStatementImpl implements SQLCreat
         }
 
         return x;
+    }
+
+    public List<SQLAssignItem> getOptions() {
+        return options;
     }
 }

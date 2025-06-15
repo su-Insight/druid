@@ -20,10 +20,13 @@ import com.alibaba.druid.sql.ast.SQLExpr;
 import com.alibaba.druid.sql.ast.SQLObject;
 import com.alibaba.druid.sql.ast.SQLOrderBy;
 import com.alibaba.druid.sql.ast.SQLSetQuantifier;
+import com.alibaba.druid.sql.ast.statement.SQLSelectGroupByClause;
 import com.alibaba.druid.sql.ast.statement.SQLSelectQuery;
+import com.alibaba.druid.sql.ast.statement.SQLSelectQueryBlock;
 import com.alibaba.druid.sql.dialect.db2.ast.stmt.DB2SelectQueryBlock;
 import com.alibaba.druid.sql.dialect.db2.ast.stmt.DB2SelectQueryBlock.Isolation;
 import com.alibaba.druid.sql.parser.*;
+import com.alibaba.druid.util.FnvHash;
 
 public class DB2SelectParser extends SQLSelectParser {
     public DB2SelectParser(SQLExprParser exprParser) {
@@ -115,8 +118,10 @@ public class DB2SelectParser extends SQLSelectParser {
                 lexer.nextToken();
                 if (lexer.identifierEquals("RR")) {
                     queryBlock.setIsolation(Isolation.RR);
+                    parseLockRequest(queryBlock);
                 } else if (lexer.identifierEquals("RS")) {
                     queryBlock.setIsolation(Isolation.RS);
+                    parseLockRequest(queryBlock);
                 } else if (lexer.identifierEquals("CS")) {
                     queryBlock.setIsolation(Isolation.CS);
                 } else if (lexer.identifierEquals("UR")) {
@@ -139,6 +144,7 @@ public class DB2SelectParser extends SQLSelectParser {
                     accept(Token.ONLY);
                     queryBlock.setForReadOnly(true);
                 }
+                continue;
             }
 
             if (lexer.token() == Token.OPTIMIZE) {
@@ -157,5 +163,66 @@ public class DB2SelectParser extends SQLSelectParser {
         }
 
         return queryRest(queryBlock, acceptUnion);
+    }
+
+    private void parseLockRequest(DB2SelectQueryBlock queryBlock) {
+        lexer.nextToken();
+        accept(Token.USE);
+        accept(Token.AND);
+        if (!lexer.identifierEquals("KEEP")) {
+            throw new ParserException("TODO. " + lexer.info());
+        }
+        lexer.nextToken();
+        DB2SelectQueryBlock.LockRequest lockRequest = null;
+        switch (lexer.token()) {
+            case SHARE: {
+                lockRequest = DB2SelectQueryBlock.LockRequest.SHARE;
+                break;
+            }
+            case UPDATE: {
+                lockRequest = DB2SelectQueryBlock.LockRequest.UPDATE;
+                break;
+            }
+            case EXCLUSIVE: {
+                lockRequest = DB2SelectQueryBlock.LockRequest.EXCLUSIVE;
+                break;
+            }
+            default:
+                throw new ParserException("TODO. " + lexer.info());
+        }
+        lexer.nextToken();
+        if (lexer.identifierEquals("LOCKS")) {
+            queryBlock.setLockRequest(lockRequest);
+        } else {
+            throw new ParserException("TODO. " + lexer.info());
+        }
+    }
+
+    @Override
+    protected void parseOrderByWith(SQLSelectGroupByClause groupBy, SQLSelectQueryBlock queryBlock) {
+        Lexer.SavePoint mark = lexer.mark();
+        lexer.nextToken();
+
+        if (lexer.identifierEquals(FnvHash.Constants.CUBE)) {
+            lexer.nextToken();
+            groupBy.setWithCube(true);
+        } else if (lexer.identifierEquals(FnvHash.Constants.ROLLUP)) {
+            lexer.nextToken();
+            groupBy.setWithRollUp(true);
+        } else if (lexer.identifierEquals(FnvHash.Constants.RS)) {
+            lexer.nextToken();
+            ((DB2SelectQueryBlock) queryBlock).setIsolation(DB2SelectQueryBlock.Isolation.RS);
+        } else if (lexer.identifierEquals(FnvHash.Constants.RR)) {
+            lexer.nextToken();
+            ((DB2SelectQueryBlock) queryBlock).setIsolation(DB2SelectQueryBlock.Isolation.RR);
+        } else if (lexer.identifierEquals(FnvHash.Constants.CS)) {
+            lexer.nextToken();
+            ((DB2SelectQueryBlock) queryBlock).setIsolation(DB2SelectQueryBlock.Isolation.CS);
+        } else if (lexer.identifierEquals(FnvHash.Constants.UR)) {
+            lexer.nextToken();
+            ((DB2SelectQueryBlock) queryBlock).setIsolation(DB2SelectQueryBlock.Isolation.UR);
+        } else {
+            lexer.reset(mark);
+        }
     }
 }

@@ -27,7 +27,6 @@ import com.alibaba.druid.sql.ast.expr.SQLIdentifierExpr;
 import com.alibaba.druid.sql.ast.expr.SQLIntegerExpr;
 import com.alibaba.druid.sql.ast.expr.SQLPropertyExpr;
 import com.alibaba.druid.sql.ast.statement.*;
-import com.alibaba.druid.sql.dialect.hive.stmt.HiveCreateTableStatement;
 import com.alibaba.druid.sql.dialect.mysql.ast.statement.MySqlCreateTableStatement;
 import com.alibaba.druid.sql.dialect.mysql.ast.statement.MySqlRenameTableStatement;
 import com.alibaba.druid.sql.dialect.mysql.visitor.MySqlASTVisitorAdapter;
@@ -417,6 +416,7 @@ public class SchemaRepository {
             case mariadb:
             case tidb:
             case sqlite:
+            case polardbx:
                 resolveVisitor = new SchemaResolveVisitorFactory.MySqlResolveVisitor(this, optionsValue);
                 break;
             case oracle:
@@ -464,7 +464,7 @@ public class SchemaRepository {
 
     public String console(String input) {
         try {
-            StringBuffer buf = new StringBuffer();
+            StringBuilder buf = new StringBuilder();
 
             List<SQLStatement> stmtList = SQLUtils.parseStatements(input, dbType, SQLParserFeature.IgnoreNameQuotes);
 
@@ -487,17 +487,21 @@ public class SchemaRepository {
                     }
 
                     if (schemaObject == null) {
-                        buf.append("ERROR 1146 (42S02): Table '" + table + "' doesn't exist\n");
+                        buf.append("ERROR 1146 (42S02): Table '")
+                                .append(table)
+                                .append("' doesn't exist\n");
                     } else {
                         MySqlCreateTableStatement createTableStmt = (MySqlCreateTableStatement) schemaObject.getStatement();
-                        createTableStmt.showCoumns(buf);
+                        createTableStmt.showColumns(buf);
                     }
                 } else if (stmt instanceof SQLShowCreateTableStatement) {
                     SQLShowCreateTableStatement showCreateTableStmt = (SQLShowCreateTableStatement) stmt;
                     SQLName table = showCreateTableStmt.getName();
                     SchemaObject schemaObject = findTable(table);
                     if (schemaObject == null) {
-                        buf.append("ERROR 1146 (42S02): Table '" + table + "' doesn't exist\n");
+                        buf.append("ERROR 1146 (42S02): Table '")
+                                .append(table)
+                                .append("' doesn't exist\n");
                     } else {
                         MySqlCreateTableStatement createTableStmt = (MySqlCreateTableStatement) schemaObject.getStatement();
                         createTableStmt.output(buf);
@@ -709,11 +713,6 @@ public class SchemaRepository {
             return false;
         }
 
-        public boolean visit(HiveCreateTableStatement x) {
-            acceptCreateTable(x);
-            return false;
-        }
-
         public boolean visit(MySqlCreateTableStatement x) {
             acceptCreateTable(x);
             return false;
@@ -912,11 +911,6 @@ public class SchemaRepository {
             return false;
         }
 
-        public boolean visit(HiveCreateTableStatement x) {
-            acceptCreateTable(x);
-            return false;
-        }
-
         public boolean visit(SQLDropTableStatement x) {
             acceptDropTable(x);
             return false;
@@ -1017,8 +1011,15 @@ public class SchemaRepository {
 
                     if (column == null) {
                         column = new SQLColumnDefinition();
-                        column.setDataType(
-                                selectItem.computeDataType());
+                        SQLDataType dataType = null;
+                        try {
+                            dataType = selectItem.computeDataType();
+                        } catch (Throwable ignored) {
+                            // ignore
+                        }
+                        if (dataType != null) {
+                            column.setDataType(dataType.clone());
+                        }
                     }
 
                     String name = selectItem.computeAlias();

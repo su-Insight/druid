@@ -64,8 +64,10 @@ public class OracleMergeTest11 extends OracleTest {
                         "\tWHERE THE_DATE = TRUNC(SYSDATE)\n" +
                         "\t\tAND AREA_LEVEL <= 1\n" +
                         ") B ON (A.AREA_ID = B.AREA_ID\n" +
-                        "AND A.AREA_LEVEL = B.AREA_LEVEL) \n" +
-                        "WHEN MATCHED THEN UPDATE SET A.SUM_CHRG_YS = ROUND(B.TOTAL_CHARGE * 1.00 / 10000, 2), A.CHARGE = B.THIS_CHARGE;",
+                        "AND A.AREA_LEVEL = B.AREA_LEVEL)\n" +
+                        "WHEN MATCHED THEN UPDATE\n" +
+                        "SET A.SUM_CHRG_YS = ROUND(B.TOTAL_CHARGE * 1.00 / 10000, 2),\n" +
+                        "\tA.CHARGE = B.THIS_CHARGE;",
                 result);
 
         SQLSelect select = ((SQLSubqueryTableSource) mergeStatement.getInto()).getSelect();
@@ -75,7 +77,7 @@ public class OracleMergeTest11 extends OracleTest {
                 "\tAND AREA_LEVEL <= 1\n" +
                 "\tAND TYPE_ID = '2'", select.toString());
 
-        SQLUpdateSetItem updateSetItem = mergeStatement.getUpdateClause().getItems().get(0);
+        SQLUpdateSetItem updateSetItem = ((SQLMergeStatement.WhenUpdate) mergeStatement.getWhens().get(0)).getItems().get(0);
         SQLExpr value = updateSetItem.getValue();
 
         assertEquals("ROUND(B.TOTAL_CHARGE * 1.00 / 10000, 2)", value.toString());

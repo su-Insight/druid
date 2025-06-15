@@ -45,19 +45,19 @@ public class MySqlSelectTest_238 extends MysqlTest {
 
         assertEquals("SELECT a.cat_id1, a.cat_name1, a.cat_id2, a.cat_name2, a.cat_id3\n" +
                 "\t, a.cat_name3, a.leaf_cat_id, a.leaf_cat_name\n" +
-                "\t, concat(CASE \n" +
+                "\t, concat(CASE\n" +
                 "\t\tWHEN cat_name1 IS NOT NULL THEN concat(cat_name1, '>>')\n" +
                 "\t\tELSE ''\n" +
-                "\tEND, CASE \n" +
+                "\tEND, CASE\n" +
                 "\t\tWHEN cat_name2 IS NOT NULL THEN concat(cat_name2, '>>')\n" +
                 "\t\tELSE ''\n" +
-                "\tEND, CASE \n" +
+                "\tEND, CASE\n" +
                 "\t\tWHEN cat_name3 IS NOT NULL THEN concat(cat_name3, '>>')\n" +
                 "\t\tELSE ''\n" +
-                "\tEND, CASE \n" +
+                "\tEND, CASE\n" +
                 "\t\tWHEN leaf_cat_name IS NOT NULL THEN concat(leaf_cat_name)\n" +
                 "\t\tELSE ''\n" +
-                "\tEND) AS full_name_path\n" +
+                "\tEND) AS full_name_path -- select count(1)\n" +
                 "FROM (\n" +
                 "\tSELECT c1.cat_id AS cat_id1, c1.cat_name AS cat_name1, c2.cat_id AS cat_id2, c2.cat_name AS cat_name2, c3.cat_id AS cat_id3\n" +
                 "\t\t, c3.cat_name AS cat_name3, s.cat_id AS leaf_cat_id, s.cat_name AS leaf_cat_name\n" +

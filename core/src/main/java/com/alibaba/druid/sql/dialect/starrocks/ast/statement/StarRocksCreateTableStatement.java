@@ -1,168 +1,83 @@
 package com.alibaba.druid.sql.dialect.starrocks.ast.statement;
 
 import com.alibaba.druid.DbType;
+import com.alibaba.druid.sql.ast.DistributedByType;
 import com.alibaba.druid.sql.ast.SQLExpr;
-import com.alibaba.druid.sql.ast.SQLName;
-import com.alibaba.druid.sql.ast.expr.SQLCharExpr;
+import com.alibaba.druid.sql.ast.SQLOrderBy;
+import com.alibaba.druid.sql.ast.statement.SQLAssignItem;
 import com.alibaba.druid.sql.ast.statement.SQLCreateTableStatement;
+import com.alibaba.druid.sql.ast.statement.SQLSelectOrderByItem;
+import com.alibaba.druid.sql.dialect.starrocks.ast.StarRocksObject;
 import com.alibaba.druid.sql.dialect.starrocks.visitor.StarRocksASTVisitor;
 import com.alibaba.druid.sql.visitor.SQLASTVisitor;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
-public class StarRocksCreateTableStatement extends SQLCreateTableStatement {
-    protected SQLName modelKey;
-
-    protected SQLExpr partitionBy;
-    protected SQLExpr start;
-    protected SQLExpr end;
-    protected SQLExpr every;
-    protected SQLExpr distributedBy;
-
-    protected boolean lessThan;
-    protected boolean fixedRange;
-    protected boolean startEnd;
-
-    protected final List<SQLExpr> modelKeyParameters = new ArrayList<SQLExpr>();
-
-    protected Map<SQLExpr, SQLExpr> lessThanMap = new LinkedHashMap<>();
-    protected Map<SQLExpr, List<SQLExpr>> fixedRangeMap = new LinkedHashMap<>();
-    protected Map<SQLCharExpr, SQLCharExpr> propertiesMap = new LinkedHashMap<>();
-    protected Map<SQLCharExpr, SQLCharExpr> lBracketPropertiesMap = new LinkedHashMap<>();
-
+public class StarRocksCreateTableStatement extends SQLCreateTableStatement implements StarRocksObject {
+    protected SQLExpr engine;
+    protected SQLOrderBy orderBy;
+    protected DistributedByType distributedByType;
+    protected final List<SQLSelectOrderByItem> distributedBy = new ArrayList<>();
+    protected final List<SQLAssignItem> brokerProperties = new ArrayList<>();
     public StarRocksCreateTableStatement() {
         super(DbType.starrocks);
     }
 
-    public Map<SQLCharExpr, SQLCharExpr> getPropertiesMap() {
-        return propertiesMap;
+    public SQLExpr getEngine() {
+        return engine;
     }
 
-    public Map<SQLCharExpr, SQLCharExpr> getlBracketPropertiesMap() {
-        return lBracketPropertiesMap;
-    }
-
-    public void setPropertiesMap(Map<SQLCharExpr, SQLCharExpr> propertiesMap) {
-        this.propertiesMap = propertiesMap;
-    }
-
-    public void setlBracketPropertiesMap(Map<SQLCharExpr, SQLCharExpr> lBracketPropertiesMap) {
-        this.lBracketPropertiesMap = lBracketPropertiesMap;
-    }
-
-    public void setStartEnd(boolean startEnd) {
-        this.startEnd = startEnd;
-    }
-
-    public boolean isStartEnd() {
-        return startEnd;
-    }
-
-    public void setDistributedBy(SQLExpr distributedBy) {
-        this.distributedBy = distributedBy;
-    }
-
-    public SQLExpr getDistributedBy() {
-        return distributedBy;
-    }
-
-    public SQLExpr getStart() {
-        return start;
-    }
-
-    public SQLExpr getEnd() {
-        return end;
-    }
-
-    public SQLExpr getEvery() {
-        return every;
-    }
-
-    public void setStart(SQLExpr start) {
-        this.start = start;
-    }
-
-    public void setEnd(SQLExpr end) {
-        this.end = end;
-    }
-
-    public void setEvery(SQLExpr every) {
-        this.every = every;
-    }
-
-    public boolean isFixedRange() {
-        return fixedRange;
-    }
-
-    public void setFixedRange(boolean fixedRange) {
-        this.fixedRange = fixedRange;
-    }
-
-    public Map<SQLExpr, List<SQLExpr>> getFixedRangeMap() {
-        return fixedRangeMap;
-    }
-
-    public void setFixedRangeMap(Map<SQLExpr, List<SQLExpr>> fixedRangeMap) {
-        this.fixedRangeMap = fixedRangeMap;
-    }
-
-    public boolean isLessThan() {
-        return lessThan;
-    }
-
-    public void setLessThan(boolean lessThan) {
-        this.lessThan = lessThan;
-    }
-
-    public Map<SQLExpr, SQLExpr> getLessThanMap() {
-        return lessThanMap;
-    }
-
-    public void setLessThanMap(Map<SQLExpr, SQLExpr> lessThanMap) {
-        this.lessThanMap = lessThanMap;
-    }
-
-    public SQLName getModelKey() {
-        return modelKey;
-    }
-
-    public void setModelKey(SQLName modelKey) {
-        this.modelKey = modelKey;
-    }
-
-    public List<SQLExpr> getModelKeyParameters() {
-        return modelKeyParameters;
-    }
-
-    public void setPartitionBy(SQLExpr x) {
+    public void setEngine(SQLExpr x) {
         if (x != null) {
             x.setParent(this);
         }
-        this.partitionBy = x;
+        this.engine = x;
     }
 
-    public SQLExpr getPartitionBy() {
-        return partitionBy;
+    public DistributedByType getDistributedByType() {
+        return distributedByType;
+    }
+
+    public void setDistributedByType(DistributedByType distributedByType) {
+        this.distributedByType = distributedByType;
+    }
+
+    public List<SQLSelectOrderByItem> getDistributedBy() {
+        return distributedBy;
+    }
+
+    public List<SQLAssignItem> getBrokerProperties() {
+        return brokerProperties;
+    }
+
+    public SQLOrderBy getOrderBy() {
+        return orderBy;
+    }
+
+    public void setOrderBy(SQLOrderBy orderBy) {
+        if (orderBy != null) {
+            orderBy.setParent(this);
+        }
+        this.orderBy = orderBy;
     }
 
     @Override
     protected void accept0(SQLASTVisitor v) {
         if (v instanceof StarRocksASTVisitor) {
-            StarRocksASTVisitor vv = (StarRocksASTVisitor) v;
-            if (vv.visit(this)) {
-                acceptChild(vv);
-            }
-            vv.endVisit(this);
+            accept0((StarRocksASTVisitor) v);
             return;
         }
+        super.accept0(v);
+    }
 
+    @Override
+    public void accept0(StarRocksASTVisitor v) {
         if (v.visit(this)) {
-            acceptChild(v);
+            super.acceptChild(v);
+            acceptChild(v, engine);
+            acceptChild(v, orderBy);
         }
         v.endVisit(this);
     }
-
 }

@@ -16,6 +16,7 @@
 package com.alibaba.druid.sql.ast.statement;
 
 import com.alibaba.druid.sql.ast.SQLName;
+import com.alibaba.druid.sql.ast.SQLObject;
 import com.alibaba.druid.sql.visitor.SQLASTVisitor;
 
 import java.util.ArrayList;
@@ -63,11 +64,20 @@ public class SQLSubqueryTableSource extends SQLTableSourceImpl {
     @Override
     protected void accept0(SQLASTVisitor visitor) {
         if (visitor.visit(this)) {
-            if (select != null) {
-                select.accept(visitor);
-            }
+            acceptChild(visitor, this.select);
+            super.accept0(visitor);
         }
         visitor.endVisit(this);
+    }
+
+    public SQLObject resolveColumn(long columnNameHash) {
+        if (select != null) {
+            SQLSelectQueryBlock queryBlock = select.getQueryBlock();
+            if (queryBlock != null) {
+                return queryBlock.findSelectItem(columnNameHash);
+            }
+        }
+        return null;
     }
 
     public void cloneTo(SQLSubqueryTableSource x) {
@@ -164,5 +174,26 @@ public class SQLSubqueryTableSource extends SQLTableSourceImpl {
             }
         }
         return null;
+    }
+
+    public SQLColumnDefinition findColumn(String columnName) {
+        SQLSelectQueryBlock queryBlock = select.getFirstQueryBlock();
+        if (queryBlock != null) {
+            return queryBlock.findColumn(columnName);
+        } else {
+            if (select.getQuery() instanceof SQLUnionQuery && ((SQLUnionQuery) select.getQuery()).getFirstQueryBlock() instanceof SQLSelectQueryBlock) {
+                SQLSelectQueryBlock left = ((SQLUnionQuery) select.getQuery()).getFirstQueryBlock();
+                return ((SQLSelectQueryBlock) left).findColumn(columnName);
+            }
+        }
+        return null;
+    }
+
+    public static SQLSubqueryTableSource fixParenthesized(SQLSubqueryTableSource rightTableSourceTmp) {
+        if (rightTableSourceTmp.getSelect() != null && rightTableSourceTmp.getSelect().getQuery() != null && rightTableSourceTmp.getSelect()
+            .getQuery().isParenthesized()) {
+            rightTableSourceTmp.getSelect().getQuery().setParenthesized(false);
+        }
+        return rightTableSourceTmp;
     }
 }

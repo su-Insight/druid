@@ -20,12 +20,22 @@ package com.alibaba.druid.sql.visitor;
 import com.alibaba.druid.sql.ast.*;
 import com.alibaba.druid.sql.ast.expr.*;
 import com.alibaba.druid.sql.ast.statement.*;
+import com.alibaba.druid.sql.dialect.bigquery.visitor.BigQueryVisitor;
 import com.alibaba.druid.sql.dialect.hive.ast.HiveInputOutputFormat;
-import com.alibaba.druid.sql.dialect.hive.stmt.HiveCreateTableStatement;
 import com.alibaba.druid.sql.dialect.mysql.ast.statement.MySqlKillStatement;
 import com.alibaba.druid.sql.dialect.mysql.ast.statement.SQLAlterResourceGroupStatement;
 import com.alibaba.druid.sql.dialect.mysql.ast.statement.SQLCreateResourceGroupStatement;
 import com.alibaba.druid.sql.dialect.mysql.ast.statement.SQLListResourceGroupStatement;
+import com.alibaba.druid.sql.dialect.mysql.visitor.MySqlASTVisitor;
+import com.alibaba.druid.sql.dialect.odps.visitor.OdpsASTVisitor;
+import com.alibaba.druid.sql.dialect.oracle.visitor.OracleASTVisitor;
+import com.alibaba.druid.sql.dialect.postgresql.visitor.PGASTVisitor;
+import com.alibaba.druid.sql.dialect.starrocks.ast.StarRocksIndexDefinition;
+import com.alibaba.druid.sql.dialect.starrocks.ast.statement.StarRocksCreateResourceStatement;
+import com.alibaba.druid.sql.template.SQLSelectQueryTemplate;
+
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 public interface SQLASTVisitor {
     default void endVisit(SQLAllColumnExpr x) {
@@ -110,6 +120,11 @@ public interface SQLASTVisitor {
         return true;
     }
 
+    default boolean visit(SQLTableSourceImpl x) {
+        return true;
+    }
+
+    default void endVisit(SQLTableSourceImpl x) {}
     default boolean visit(SQLBetweenExpr x) {
         return true;
     }
@@ -200,6 +215,20 @@ public interface SQLASTVisitor {
 
     default boolean visit(SQLSelectItem x) {
         return true;
+    }
+
+    default boolean visit(SQLStructExpr x) {
+        return true;
+    }
+
+    default void endVisit(SQLStructExpr x) {
+    }
+
+    default boolean visit(SQLAliasedExpr x) {
+        return true;
+    }
+
+    default void endVisit(SQLAliasedExpr x) {
     }
 
     default void endVisit(SQLCastExpr x) {
@@ -368,6 +397,13 @@ public interface SQLASTVisitor {
     }
 
     default void endVisit(SQLUpdateStatement x) {
+    }
+
+    default boolean visit(SQLGetDiagnosticsStatement x) {
+        return true;
+    }
+
+    default void endVisit(SQLGetDiagnosticsStatement x) {
     }
 
     default boolean visit(SQLCreateViewStatement x) {
@@ -741,6 +777,13 @@ public interface SQLASTVisitor {
     default void endVisit(SQLColumnCheck x) {
     }
 
+    default boolean visit(SQLColumnDefault x) {
+        return true;
+    }
+
+    default void endVisit(SQLColumnDefault x) {
+    }
+
     default boolean visit(SQLExprHint x) {
         return true;
     }
@@ -753,6 +796,18 @@ public interface SQLASTVisitor {
     }
 
     default void endVisit(SQLAlterTableDropConstraint x) {
+    }
+    default boolean visit(SQLAlterTableDropCheck x) {
+        return true;
+    }
+
+    default void endVisit(SQLAlterTableDropCheck x) {
+    }
+    default boolean visit(SQLAlterTableValidateConstraint x) {
+        return true;
+    }
+
+    default void endVisit(SQLAlterTableValidateConstraint x) {
     }
 
     default boolean visit(SQLUnique x) {
@@ -930,6 +985,13 @@ public interface SQLASTVisitor {
         return true;
     }
 
+    default void endVisit(SQLTimestampNTZExpr x) {
+    }
+
+    default boolean visit(SQLTimestampNTZExpr x) {
+        return true;
+    }
+
     default void endVisit(SQLDateTimeExpr x) {
     }
 
@@ -1025,6 +1087,20 @@ public interface SQLASTVisitor {
     }
 
     default boolean visit(SQLAlterTableSetComment x) {
+        return true;
+    }
+
+    default void endVisit(SQLAlterTableSetTableSpace x) {
+    }
+
+    default boolean visit(SQLAlterTableSetTableSpace x) {
+        return true;
+    }
+
+    default void endVisit(SQLAlterTableSetSchema x) {
+    }
+
+    default boolean visit(SQLAlterTableSetSchema x) {
         return true;
     }
 
@@ -1203,13 +1279,19 @@ public interface SQLASTVisitor {
     default void endVisit(SQLPartitionValue x) {
     }
 
-    default boolean visit(SQLPartition x) {
+    default boolean visit(SQLPartitionSingle x) {
         return true;
     }
 
-    default void endVisit(SQLPartition x) {
+    default void endVisit(SQLPartitionSingle x) {
     }
 
+    default boolean visit(SQLPartitionBatch x) {
+        return true;
+    }
+
+    default void endVisit(SQLPartitionBatch x) {
+    }
     default boolean visit(SQLPartitionByRange x) {
         return true;
     }
@@ -1229,6 +1311,12 @@ public interface SQLASTVisitor {
     }
 
     default void endVisit(SQLPartitionByList x) {
+    }
+    default boolean visit(SQLPartitionOf x) {
+        return true;
+    }
+
+    default void endVisit(SQLPartitionOf x) {
     }
 
     default boolean visit(SQLSubPartition x) {
@@ -1357,18 +1445,22 @@ public interface SQLASTVisitor {
     default void endVisit(SQLMergeStatement x) {
     }
 
-    default boolean visit(SQLMergeStatement.MergeUpdateClause x) {
+    default boolean visit(SQLMergeStatement.WhenUpdate x) {
         return true;
     }
 
-    default void endVisit(SQLMergeStatement.MergeUpdateClause x) {
+    default void endVisit(SQLMergeStatement.WhenUpdate x) {
     }
 
-    default boolean visit(SQLMergeStatement.MergeInsertClause x) {
+    default boolean visit(SQLMergeStatement.WhenInsert x) {
         return true;
     }
 
-    default void endVisit(SQLMergeStatement.MergeInsertClause x) {
+    default boolean visit(SQLMergeStatement.WhenDelete x) {
+        return true;
+    }
+
+    default void endVisit(SQLMergeStatement.WhenInsert x) {
     }
 
     default boolean visit(SQLErrorLoggingClause x) {
@@ -1766,6 +1858,13 @@ public interface SQLASTVisitor {
         return true;
     }
 
+    default void endVisit(SQLAlterTableSetSerdeProperties x) {
+    }
+
+    default boolean visit(SQLAlterTableSetSerdeProperties x) {
+        return true;
+    }
+
     default boolean visit(SQLShowCreateViewStatement x) {
         return true;
     }
@@ -2137,13 +2236,6 @@ public interface SQLASTVisitor {
     default void endVisit(SQLAdhocTableSource x) {
     }
 
-    default boolean visit(HiveCreateTableStatement x) {
-        return true;
-    }
-
-    default void endVisit(HiveCreateTableStatement x) {
-    }
-
     default boolean visit(HiveInputOutputFormat x) {
         return true;
     }
@@ -2198,6 +2290,13 @@ public interface SQLASTVisitor {
     }
 
     default void endVisit(SQLUnnestTableSource x) {
+    }
+
+    default boolean visit(SQLGeneratedTableSource x) {
+        return true;
+    }
+
+    default void endVisit(SQLGeneratedTableSource x) {
     }
 
     default boolean visit(SQLCopyFromStatement x) {
@@ -2486,6 +2585,18 @@ public interface SQLASTVisitor {
 
     default void endVisit(SQLOptimizeStatement x) {
     }
+    default boolean visit(SQLAlterTableAttachPartition x) {
+        return true;
+    }
+
+    default void endVisit(SQLAlterTableAttachPartition x) {
+    }
+    default boolean visit(SQLAlterTableDetachPartition x) {
+        return true;
+    }
+
+    default void endVisit(SQLAlterTableDetachPartition x) {
+    }
 
     default boolean visit(SQLPivot x) {
         return true;
@@ -2501,11 +2612,245 @@ public interface SQLASTVisitor {
     default void endVisit(SQLUnpivot x) {
     }
 
+    default void preVisit(StarRocksCreateResourceStatement x) {
+    }
+
+    default boolean visit(StarRocksCreateResourceStatement x) {
+        return true;
+    }
+
+    default void endVisit(StarRocksCreateResourceStatement x) {
+    }
+
     default boolean visit(SQLCostStatement x) {
         return true;
     }
 
     default void endVisit(SQLCostStatement x) {
     }
+    default boolean visit(StarRocksIndexDefinition x) {
+        return true;
+    }
 
+    default void endVisit(StarRocksIndexDefinition x) {
+    }
+
+    default boolean visit(SQLSelectQueryTemplate x) {
+        return true;
+    }
+
+    default void endVisit(SQLSelectQueryTemplate x) {
+    }
+
+    default boolean visit(SQLAlterTableSetSerde x) {
+        return true;
+    }
+
+    default void endVisit(SQLAlterTableSetSerde x) {
+    }
+
+    default boolean visit(SQLAlterTableSetFileFormat x) {
+        return true;
+    }
+
+    default void endVisit(SQLAlterTableSetFileFormat x) {
+    }
+
+    default boolean visit(SQLTop x) { return true; }
+
+    default void endVisit(SQLTop x) {
+    }
+
+    default boolean visit(SQLPatternExpr x) { return true; }
+
+    default void endVisit(SQLPatternExpr x) {
+    }
+
+    default boolean visit(SQLCommitTransactionStatement x) {
+        return true;
+    }
+
+    default void endVisit(SQLCommitTransactionStatement x) {
+    }
+
+    default boolean visit(SQLRaiseStatement x) {
+        return true;
+    }
+
+    default void endVisit(SQLRaiseStatement x) {
+    }
+
+    default boolean visit(SQLAtTimeZoneExpr x) {
+        return true;
+    }
+
+    default void endVisit(SQLAtTimeZoneExpr x) {
+    }
+
+    default boolean visit(SQLRollbackTransactionStatement x) {
+        return true;
+    }
+
+    default void endVisit(SQLRollbackTransactionStatement x) {}
+
+    default boolean visit(SQLExceptionStatement x) {
+        return true;
+    }
+
+    default void endVisit(SQLExceptionStatement x) {}
+
+    default boolean visit(SQLExceptionStatement.Item x) {
+        return true;
+    }
+
+    default void endVisit(SQLExceptionStatement.Item x) {}
+
+    default boolean visit(SQLContinueStatement x) {
+        return true;
+    }
+
+    default void endVisit(SQLContinueStatement x) {}
+
+    default boolean visit(SQLLeaveStatement x) {
+        return true;
+    }
+
+    default void endVisit(SQLLeaveStatement x) {}
+
+    default boolean visit(SQLExecuteImmediateStatement x) {
+        return true;
+    }
+
+    default void endVisit(SQLExecuteImmediateStatement x) {}
+
+    static SQLASTVisitor ofMethodInvoke(Consumer<SQLMethodInvokeExpr> p) {
+        return ofMethodInvoke(null, p);
+    }
+
+    static SQLASTVisitor ofMethodInvoke(Predicate<String> filter, Consumer<SQLMethodInvokeExpr> p) {
+        class MethodInvokeVisitor implements SQLASTVisitor, BigQueryVisitor, OdpsASTVisitor, OracleASTVisitor, MySqlASTVisitor, PGASTVisitor {
+            final Predicate<String> filter;
+            final Consumer<SQLMethodInvokeExpr> p;
+            public MethodInvokeVisitor(Predicate<String> filter, Consumer<SQLMethodInvokeExpr> p) {
+                this.filter = filter;
+                this.p = p;
+            }
+
+            public boolean visit(SQLMethodInvokeExpr x) {
+                if (filter == null || filter.test(x.getMethodName())) {
+                    p.accept(x);
+                }
+                return true;
+            }
+
+            public boolean visit(SQLAggregateExpr x) {
+                if (filter == null || filter.test(x.getMethodName())) {
+                    p.accept(x);
+                }
+                return true;
+            }
+        }
+        return new MethodInvokeVisitor(filter, p);
+    }
+
+    static SQLASTVisitor ofAggregate(Consumer<SQLAggregateExpr> p) {
+        return new SQLASTVisitor() {
+            public boolean visit(SQLAggregateExpr x) {
+                p.accept(x);
+                return true;
+            }
+        };
+    }
+
+    static SQLASTVisitor ofAggregate(Predicate<String> filter, Consumer<SQLAggregateExpr> p) {
+        return new SQLASTVisitor() {
+            public boolean visit(SQLAggregateExpr x) {
+                if (filter == null || filter.test(x.getMethodName())) {
+                    p.accept(x);
+                }
+                return true;
+            }
+        };
+    }
+
+    static SQLASTVisitor ofCast(Consumer<SQLCastExpr> h) {
+        return new SQLASTVisitor() {
+            public boolean visit(SQLCastExpr x) {
+                h.accept(x);
+                return true;
+            }
+        };
+    }
+
+    static SQLASTVisitor ofUnnest(Consumer<SQLUnnestTableSource> h) {
+        return new SQLASTVisitor() {
+            public boolean visit(SQLUnnestTableSource x) {
+                h.accept(x);
+                return true;
+            }
+        };
+    }
+
+    static SQLASTVisitor ofExprTableSource(Consumer<SQLExprTableSource> h) {
+        return new SQLASTVisitor() {
+            public boolean visit(SQLExprTableSource x) {
+                h.accept(x);
+                return true;
+            }
+        };
+    }
+
+    static SQLASTVisitor ofDelete(Consumer<SQLDeleteStatement> h) {
+        return new SQLASTVisitor() {
+            public boolean visit(SQLDeleteStatement x) {
+                h.accept(x);
+                return true;
+            }
+        };
+    }
+
+    static SQLASTVisitor ofMerge(Consumer<SQLMergeStatement> h) {
+        return new SQLASTVisitor() {
+            public boolean visit(SQLMergeStatement x) {
+                h.accept(x);
+                return true;
+            }
+        };
+    }
+
+    static SQLASTVisitor ofDeclare(Consumer<SQLDeclareStatement> h) {
+        return new SQLASTVisitor() {
+            public boolean visit(SQLDeclareStatement x) {
+                h.accept(x);
+                return true;
+            }
+        };
+    }
+
+    static SQLASTVisitor ofIf(Consumer<SQLIfStatement> h) {
+        return new SQLASTVisitor() {
+            public boolean visit(SQLIfStatement x) {
+                h.accept(x);
+                return true;
+            }
+        };
+    }
+
+    static SQLASTVisitor ofPropertyExpr(Consumer<SQLPropertyExpr> h) {
+        return new SQLASTVisitor() {
+            public boolean visit(SQLPropertyExpr x) {
+                h.accept(x);
+                return true;
+            }
+        };
+    }
+
+    static SQLASTVisitor ofIdentifier(Consumer<SQLIdentifierExpr> h) {
+        return new SQLASTVisitor() {
+            public boolean visit(SQLIdentifierExpr x) {
+                h.accept(x);
+                return true;
+            }
+        };
+    }
 }

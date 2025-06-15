@@ -69,6 +69,9 @@ public interface JdbcConstants {
     DbType H2 = DbType.h2;
     String H2_DRIVER = "org.h2.Driver";
 
+    DbType LEALONE = DbType.lealone;
+    String LEALONE_DRIVER = "org.lealone.client.jdbc.JdbcDriver";
+
     DbType DM = DbType.dm;
     String DM_DRIVER = "dm.jdbc.driver.DmDriver";
 
@@ -158,4 +161,14 @@ public interface JdbcConstants {
 
     String TAOS_DATA = "com.taosdata.jdbc.TSDBDriver";
     String TAOS_DATA_RS = "com.taosdata.jdbc.rs.RestfulDriver";
+
+    String GOLDENDB_DRIVER = "com.goldendb.jdbc.Driver";
+
+    String GBASE8S_DRIVER = "com.gbasedbt.jdbc.Driver";
+
+    String OPENGAUSS_DRIVER = "org.opengauss.Driver";
+    String SUNDB = "sundb"; //科蓝数s据
+    String SUNDB_DRIVER = "csii.sundb.jdbc.SundbDriver";
+
+    String POLARDBX_DRIVER = "com.alibaba.polardbx.Driver";
 }

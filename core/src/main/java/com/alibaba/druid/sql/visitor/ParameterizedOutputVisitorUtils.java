@@ -24,9 +24,12 @@ import com.alibaba.druid.sql.ast.expr.SQLVariantRefExpr;
 import com.alibaba.druid.sql.ast.statement.SQLDDLStatement;
 import com.alibaba.druid.sql.ast.statement.SQLSelectQueryBlock;
 import com.alibaba.druid.sql.ast.statement.SQLSelectStatement;
-import com.alibaba.druid.sql.dialect.clickhouse.visitor.ClickhouseOutputVisitor;
+import com.alibaba.druid.sql.dialect.bigquery.visitor.BigQueryOutputVisitor;
+import com.alibaba.druid.sql.dialect.clickhouse.visitor.CKOutputVisitor;
 import com.alibaba.druid.sql.dialect.db2.visitor.DB2OutputVisitor;
 import com.alibaba.druid.sql.dialect.h2.visitor.H2OutputVisitor;
+import com.alibaba.druid.sql.dialect.hologres.visitor.HologresOutputVisitor;
+import com.alibaba.druid.sql.dialect.infomix.visitor.InformixOutputVisitor;
 import com.alibaba.druid.sql.dialect.mysql.ast.statement.MySqlInsertStatement;
 import com.alibaba.druid.sql.dialect.mysql.visitor.MySqlASTVisitor;
 import com.alibaba.druid.sql.dialect.mysql.visitor.MySqlOutputVisitor;
@@ -116,8 +119,8 @@ public class ParameterizedOutputVisitorUtils {
 
     private static void configVisitorFeatures(ParameterizedVisitor visitor, VisitorFeature... features) {
         if (features != null) {
-            for (int i = 0; i < features.length; i++) {
-                visitor.config(features[i], true);
+            for (VisitorFeature feature : features) {
+                visitor.config(feature, true);
             }
         }
     }
@@ -181,10 +184,10 @@ public class ParameterizedOutputVisitorUtils {
                 SQLStatement preStmt = statementList.get(i - 1);
 
                 if (preStmt.getClass() == stmt.getClass()) {
-                    StringBuilder buf = new StringBuilder();
+                    StringBuilder buf = new StringBuilder(sql.length());
                     ParameterizedVisitor v1 = createParameterizedOutputVisitor(buf, dbType);
                     preStmt.accept(v1);
-                    if (out.toString().equals(buf.toString())) {
+                    if (out.length() == buf.length() && out.toString().contentEquals(buf)) {
                         continue;
                     }
                 }
@@ -218,6 +221,7 @@ public class ParameterizedOutputVisitorUtils {
                 for (VisitorFeature visitorFeature : visitorFeatures) {
                     if (visitorFeature == VisitorFeature.OutputParameterizedZeroReplaceNotUseOriginalSql) {
                         notUseOriginalSql = true;
+                        break;
                     }
                 }
             }
@@ -396,7 +400,7 @@ public class ParameterizedOutputVisitorUtils {
         }
     }
 
-    public static ParameterizedVisitor createParameterizedOutputVisitor(Appendable out, DbType dbType) {
+    public static ParameterizedVisitor createParameterizedOutputVisitor(StringBuilder out, DbType dbType) {
         if (dbType == null) {
             dbType = DbType.other;
         }
@@ -408,14 +412,24 @@ public class ParameterizedOutputVisitorUtils {
             case mysql:
             case tidb:
             case mariadb:
+            case goldendb:
+            case oceanbase:
+            case drds:
             case elastic_search:
+            case polardbx:
                 return new MySqlOutputVisitor(out, true);
             case h2:
+            case lealone:
                 return new H2OutputVisitor(out, true);
+            case informix:
+                return new InformixOutputVisitor(out, true);
             case postgresql:
             case greenplum:
             case edb:
+            case gaussdb:
                 return new PGOutputVisitor(out, true);
+            case hologres:
+                return new HologresOutputVisitor(out, true);
             case sqlserver:
             case jtds:
                 return new SQLServerOutputVisitor(out, true);
@@ -424,9 +438,12 @@ public class ParameterizedOutputVisitorUtils {
             case phoenix:
                 return new PhoenixOutputVisitor(out, true);
             case presto:
+            case trino:
                 return new PrestoOutputVisitor(out, true);
             case clickhouse:
-                return new ClickhouseOutputVisitor(out, true);
+                return new CKOutputVisitor(out, true);
+            case bigquery:
+                return new BigQueryOutputVisitor(out, true);
             default:
                 return new SQLASTOutputVisitor(out, true);
         }
