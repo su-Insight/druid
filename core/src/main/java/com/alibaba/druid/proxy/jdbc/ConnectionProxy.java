@@ -15,6 +15,8 @@
  */
 package com.alibaba.druid.proxy.jdbc;
 
+import com.alibaba.druid.filter.FilterChain;
+
 import java.sql.Connection;
 import java.util.Date;
 import java.util.Properties;
@@ -23,6 +25,8 @@ import java.util.Properties;
  * @author wenshao [szujobs@hotmail.com]
  */
 public interface ConnectionProxy extends Connection, WrapperProxy {
+    FilterChain createFilterChain(Object fromObj);
+
     Connection getRawObject();
 
     Properties getProperties();
