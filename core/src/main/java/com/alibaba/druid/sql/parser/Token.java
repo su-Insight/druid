@@ -98,6 +98,7 @@ public enum Token {
     THEN("THEN"),
     ELSE("ELSE"),
     ELSIF("ELSIF"),
+    ELSEIF("ELSEIF"),
     END("END"),
     EXISTS("EXISTS"),
     IN("IN"),
@@ -152,6 +153,8 @@ public enum Token {
     DIV("DIV"),
 
     //postgresql
+    GET("GET"),
+    DIAGNOSTICS("DIAGNOSTICS"),
     WINDOW("WINDOW"),
     OFFSET("OFFSET"),
     ROW("ROW"),
@@ -313,7 +316,7 @@ public enum Token {
     COMMA(","),
     DOT("."),
     DOTDOT(".."),
-    DOTDOTDOT("..,"),
+    DOTDOTDOT("..."),
     EQ("="),
     GT(">"),
     LT("<"),
@@ -328,6 +331,7 @@ public enum Token {
     QUES("?"),
     QUESQUES("??"),
     QUESBAR("?|"),
+    QUESQUESBAR("??|"),
     QUESAMP("?&"),
     COLON(":"),
     COLONCOLON("::"),
