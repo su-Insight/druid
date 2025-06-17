@@ -2057,6 +2057,14 @@ public class OracleStatementParser extends SQLStatementParser {
                 if (lexer.token() == Token.KEY) {
                     name = new SQLIdentifierExpr(lexer.stringVal());
                     lexer.nextToken();
+                } else if (lexer.identifierEquals("ENUM")) {
+                    name = this.exprParser.name();
+                    SQLListExpr enumList = (SQLListExpr) this.exprParser.expr();
+                    parameter.setName(name);
+                    dataType = new SQLDataTypeImpl("ENUM", enumList);
+                    parameter.setDataType(dataType);
+                    parameters.add(parameter);
+                    break;
                 } else {
                     name = this.exprParser.name();
                 }
@@ -2148,6 +2156,13 @@ public class OracleStatementParser extends SQLStatementParser {
                 } else {
                     dataType = this.exprParser.parseDataType(false);
                 }
+
+                if (lexer.token() == Token.NOT) {
+                    lexer.nextToken();
+                    accept(Token.NULL);
+                    parameter.setNotNull(true);
+                }
+
                 if (lexer.token() == Token.COLONEQ || lexer.token() == Token.DEFAULT) {
                     lexer.nextToken();
                     parameter.setDefaultValue(this.exprParser.expr());
@@ -3030,6 +3045,13 @@ public class OracleStatementParser extends SQLStatementParser {
             accept(Token.OF);
             SQLDataType dataType = this.exprParser.parseDataType();
             stmt.setTableOf(dataType);
+
+            if (lexer.token() == Token.INDEX) {
+                lexer.nextToken();
+                accept(Token.BY);
+                SQLDataType indexByDataType = this.exprParser.parseDataType();
+                stmt.setIndexBy(indexByDataType);
+            }
         } else if (lexer.identifierEquals(FnvHash.Constants.VARRAY)) {
             lexer.nextToken();
             accept(Token.LPAREN);
