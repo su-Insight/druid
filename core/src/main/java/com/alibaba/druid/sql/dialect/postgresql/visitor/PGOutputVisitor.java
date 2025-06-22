@@ -40,12 +40,12 @@ import java.util.List;
 import java.util.Set;
 
 public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor, OracleASTVisitor {
-    public PGOutputVisitor(Appendable appender) {
+    public PGOutputVisitor(StringBuilder appender) {
         super(appender);
         this.dbType = DbType.postgresql;
     }
 
-    public PGOutputVisitor(Appendable appender, boolean parameterized) {
+    public PGOutputVisitor(StringBuilder appender, boolean parameterized) {
         super(appender, parameterized);
         this.dbType = DbType.postgresql;
     }
@@ -547,7 +547,17 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
 
     @Override
     public boolean visit(PGStartTransactionStatement x) {
+        if (x.isUseBegin()) {
+            print0(ucase ? "BFGIN" : "begin");
+            return false;
+        }
         print0(ucase ? "START TRANSACTION" : "start transaction");
+        return false;
+    }
+
+    @Override
+    public boolean visit(PGEndTransactionStatement x) {
+        print0(ucase ? "END" : "end");
         return false;
     }
 
@@ -2558,6 +2568,44 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
             print0(ucase ? "TRUNCATE " : "truncate ");
         }
         printAndAccept(x.getTableSources(), ", ");
+        return false;
+    }
+
+    @Override
+    public boolean visit(PGAlterDatabaseStatement x) {
+        print0(ucase ? "ALTER DATABASE " : "alter database ");
+        x.getDatabaseName().accept(this);
+        print(' ');
+        if (x.getRenameToName() != null) {
+            print0(ucase ? "RENAME TO " : "rename to ");
+            x.getRenameToName().accept(this);
+        }
+        if (x.getOwnerToName() != null) {
+            print0(ucase ? "OWNER TO " : "owner to ");
+            x.getOwnerToName().accept(this);
+        }
+
+        if (x.getSetTableSpaceName() != null) {
+            print0(ucase ? "SET TABLESPACE " : "set tablespace ");
+            x.getSetTableSpaceName().accept(this);
+        }
+        if (x.isRefreshCollationVersion()) {
+            print0(ucase ? "REFRESH COLLATION VERSION " : "refresh collation version ");
+        }
+        if (x.getSetParameterName() != null) {
+            print0(ucase ? "SET " : "set ");
+            x.getSetParameterName().accept(this);
+            if (x.isUseEquals()) {
+                print(" = ");
+            } else {
+                print0(ucase ? " TO " : " to ");
+            }
+            x.getSetParameterValue().accept(this);
+        }
+        if (x.getResetParameterName() != null) {
+            print0(ucase ? "RESET " : "reset ");
+            x.getResetParameterName().accept(this);
+        }
         return false;
     }
 }
