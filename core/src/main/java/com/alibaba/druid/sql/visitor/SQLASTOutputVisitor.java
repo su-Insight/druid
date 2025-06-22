@@ -1614,7 +1614,8 @@ public class SQLASTOutputVisitor extends SQLASTVisitorAdapter implements Paramet
 
             boolean allLiteral = true;
             for (SQLExpr item : targetList) {
-                if (!(item instanceof SQLLiteralExpr || item instanceof SQLVariantRefExpr)) {
+                if (!((item instanceof SQLUnaryExpr && ((SQLUnaryExpr) item).getExpr() instanceof SQLLiteralExpr) || item instanceof SQLLiteralExpr
+                    || item instanceof SQLVariantRefExpr)) {
                     if (item instanceof SQLListExpr) {
                         SQLListExpr list = (SQLListExpr) item;
                         for (SQLExpr listItem : list.getItems()) {
@@ -9913,6 +9914,12 @@ public class SQLASTOutputVisitor extends SQLASTVisitorAdapter implements Paramet
             print0(ucase ? "AS" : "as");
             println();
             x.getSelect().accept(this);
+        }
+        if (x.getWithSelect() != null) {
+            println();
+            print0(ucase ? "AS" : "as");
+            println();
+            x.getWithSelect().accept(this);
         }
 
         if (x.getStoredBy() != null) {
