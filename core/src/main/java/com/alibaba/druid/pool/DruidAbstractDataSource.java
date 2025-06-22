@@ -1773,7 +1773,7 @@ public abstract class DruidAbstractDataSource extends WrapperAdapter implements 
                 if (socketTimeout > 0) {
                     physicalConnectProperties.put("socketTimeout", Long.toString(TimeUnit.MILLISECONDS.toSeconds(socketTimeout)));
                 }
-            } else if (DbType.sqlserver.name().equals(dbTypeName)) {
+            } else if (dbTypeName != null && DbType.sqlserver.name().equals(dbTypeName)) {
                 // see https://learn.microsoft.com/en-us/sql/connect/jdbc/setting-the-connection-properties?view=sql-server-ver16
                 physicalConnectProperties.put("loginTimeout", Long.toString(TimeUnit.MILLISECONDS.toSeconds(connectTimeout)));
                 if (socketTimeout > 0) {
@@ -2178,10 +2178,14 @@ public abstract class DruidAbstractDataSource extends WrapperAdapter implements 
         to.connectTimeoutStr = this.connectTimeoutStr;
     }
 
-    public abstract void discardConnection(Connection realConnection);
+    /**
+     * @param realConnection
+     * @return true if new connection has been requested during the execution.
+     */
+    public abstract boolean discardConnection(Connection realConnection);
 
-    public void discardConnection(DruidConnectionHolder holder) {
-        discardConnection(holder.getConnection());
+    public boolean discardConnection(DruidConnectionHolder holder) {
+        return discardConnection(holder.getConnection());
     }
 
     public boolean isAsyncCloseConnectionEnable() {
