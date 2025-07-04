@@ -1012,7 +1012,7 @@ public class DruidDataSource extends DruidAbstractDataSource
     }
 
     private void initFromUrlOrProperties() {
-        if (jdbcUrl.startsWith("jdbc:mysql://")) {
+        if (isMysqlOrMariaDBUrl(jdbcUrl)) {
             if (jdbcUrl.indexOf("connectTimeout=") != -1 || jdbcUrl.indexOf("socketTimeout=") != -1) {
                 String[] items = jdbcUrl.split("(\\?|&)");
                 for (int i = 0; i < items.length; i++) {
@@ -1041,6 +1041,19 @@ public class DruidDataSource extends DruidAbstractDataSource
                 setSocketTimeout(((Number) propertySocketTimeout).intValue());
             }
         }
+    }
+
+    /**
+     * Issue 5192,Issue 5457
+     * @see <a href="https://dev.mysql.com/doc/connector-j/8.1/en/connector-j-reference-jdbc-url-format.html">MySQL Connection URL Syntax</a>
+     * @see <a href="https://mariadb.com/kb/en/about-mariadb-connector-j/">About MariaDB Connector/J</a>
+     * @param jdbcUrl
+     * @return
+     */
+    private static boolean isMysqlOrMariaDBUrl(String jdbcUrl) {
+        return jdbcUrl.startsWith("jdbc:mysql://") || jdbcUrl.startsWith("jdbc:mysql:loadbalance://")
+            || jdbcUrl.startsWith("jdbc:mysql:replication://") || jdbcUrl.startsWith("jdbc:mariadb://")
+            || jdbcUrl.startsWith("jdbc:mariadb:loadbalance://") || jdbcUrl.startsWith("jdbc:mariadb:replication://");
     }
 
     private void submitCreateTask(boolean initTask) {
@@ -1677,6 +1690,7 @@ public class DruidDataSource extends DruidAbstractDataSource
 
         DruidConnectionHolder holder;
 
+        long startTime = System.currentTimeMillis();  //进入循环等待之前，先记录开始尝试获取连接的时间
         for (boolean createDirect = false; ; ) {
             if (createDirect) {
                 createStartNanosUpdater.set(this, System.nanoTime());
@@ -1727,6 +1741,14 @@ public class DruidDataSource extends DruidAbstractDataSource
 
             try {
                 if (activeCount >= maxActive) {
+                    long waitedTime = System.currentTimeMillis() - startTime;
+                    if (maxWait > 0 && waitedTime > maxWait) {
+                        //连接池已满时，如果最大等待时间大于0，且循环等待时间已经大于最大等待时间，则需要抛出异常
+                        connectErrorCountUpdater.incrementAndGet(this);
+                        throw new GetConnectionTimeoutException(
+                            "activeCount(" + activeCount + ")>= maxActive(" + maxActive + ") and waitedTime(" + waitedTime + "ms) > maxWait("
+                                + maxWait + "ms)");
+                    }
                     createDirect = false;
                     continue;
                 }
@@ -3720,6 +3742,7 @@ public class DruidDataSource extends DruidAbstractDataSource
             map.put("ExecuteQueryCount", this.getExecuteQueryCount());
 
             map.put("ExecuteUpdateCount", this.getExecuteUpdateCount());
+            map.put("InitStackTrace", this.getInitStackTrace());
 
             return map;
         } catch (JMException ex) {
