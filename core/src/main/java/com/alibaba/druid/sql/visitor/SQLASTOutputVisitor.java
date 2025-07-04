@@ -1614,7 +1614,8 @@ public class SQLASTOutputVisitor extends SQLASTVisitorAdapter implements Paramet
 
             boolean allLiteral = true;
             for (SQLExpr item : targetList) {
-                if (!(item instanceof SQLLiteralExpr || item instanceof SQLVariantRefExpr)) {
+                if (!((item instanceof SQLUnaryExpr && ((SQLUnaryExpr) item).getExpr() instanceof SQLLiteralExpr) || item instanceof SQLLiteralExpr
+                    || item instanceof SQLVariantRefExpr)) {
                     if (item instanceof SQLListExpr) {
                         SQLListExpr list = (SQLListExpr) item;
                         for (SQLExpr listItem : list.getItems()) {
@@ -3650,13 +3651,18 @@ public class SQLASTOutputVisitor extends SQLASTVisitorAdapter implements Paramet
     public boolean visit(SQLCreateTableStatement x) {
         printCreateTable(x, true);
 
+        SQLPartitionOf partitionOf = x.getPartitionOf();
+        if (partitionOf != null) {
+            println();
+            print0(ucase ? "PARTITION OF " : "partition of ");
+            partitionOf.accept(this);
+        }
         SQLPartitionBy partitionBy = x.getPartitioning();
         if (partitionBy != null) {
             println();
             print0(ucase ? "PARTITION BY " : "partition by ");
             partitionBy.accept(this);
         }
-
         List<SQLAssignItem> options = x.getTableOptions();
         if (options.size() > 0) {
             println();
@@ -6527,7 +6533,14 @@ public class SQLASTOutputVisitor extends SQLASTVisitorAdapter implements Paramet
         }
         this.indentCount--;
         println();
-        x.getBody().accept(this);
+        if (x.getExecuteType() != null && x.getExecuteFunc() != null) {
+            print0(ucase ? x.getExecuteType().toUpperCase() : x.getExecuteType().toLowerCase());
+            print0(" ");
+            x.getExecuteFunc().accept(this);
+        }
+        if (x.getBody() != null) {
+            x.getBody().accept(this);
+        }
         return false;
     }
 
@@ -11572,6 +11585,57 @@ public class SQLASTOutputVisitor extends SQLASTVisitorAdapter implements Paramet
         print0(ucase ? "COST SQL" : "cost sql");
         println();
         x.getStatement().accept(this);
+        return false;
+    }
+
+    public boolean visit(SQLPartitionOf x) {
+        x.getParentTable().accept(this);
+        if (x.isUseDefault()) {
+            print0(ucase ? " DEFAULT" : " pdefault");
+        }
+        if (x.getColumnName() != null || x.getConstraintName() != null || x.getCheckExpr() != null) {
+            print0(" (");
+        }
+        if (x.getColumnName() != null) {
+            x.getColumnName().accept(this);
+        }
+        if (x.getConstraintName() != null) {
+            print0(ucase ? " CONSTRAINT " : " constraint ");
+            x.getConstraintName().accept(this);
+        }
+        if (x.getCheckExpr() != null) {
+            print0(ucase ? " CHECK (" : " check (");
+            x.getCheckExpr().accept(this);
+            print0(")");
+        }
+        if (x.getDefaultExpr() != null) {
+            print0(ucase ? " DEFAULT " : " default ");
+            x.getDefaultExpr().accept(this);
+        }
+        if (x.getColumnName() != null || x.getConstraintName() != null || x.getCheckExpr() != null) {
+            print0(" )");
+        }
+        if (x.getForValuesFrom() != null && x.getForValuesTo() != null) {
+            print0(ucase ? " FOR VALUES FROM (" : " for values from (");
+            printAndAccept(x.getForValuesFrom(), ", ");
+            print0(ucase ? ") TO (" : ") to (");
+            printAndAccept(x.getForValuesTo(), ", ");
+            print0(")");
+        }
+        if (x.getForValuesIn() != null) {
+            print0(ucase ? " FOR VALUES IN (" : " for values in (");
+            printAndAccept(x.getForValuesIn(), ", ");
+            print0(")");
+        }
+        if (x.getForValuesModulus() != null && x.getForValuesRemainder() != null) {
+            print0(ucase ? " FOR VALUES WITH (" : " for values with (");
+            print0(ucase ? "MODULUS " : "modulus ");
+            x.getForValuesModulus().accept(this);
+            print0(" , ");
+            print0(ucase ? "REMAINDER " : "remainder ");
+            x.getForValuesRemainder().accept(this);
+            print0(")");
+        }
         return false;
     }
 }
