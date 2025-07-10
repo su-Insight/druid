@@ -119,7 +119,7 @@ public class PagerUtils {
     private static boolean limitUnion(SQLUnionQuery queryBlock, DbType dbType, int offset, int count, boolean check) {
         SQLLimit limit = queryBlock.getLimit();
         if (limit != null) {
-            if (offset > 0) {
+            if (offset >= 0) {
                 limit.setOffset(new SQLIntegerExpr(offset));
             }
 
@@ -184,7 +184,7 @@ public class PagerUtils {
                                               boolean check) {
         SQLLimit limit = queryBlock.getLimit();
         if (limit != null) {
-            if (offset > 0) {
+            if (offset >= 0) {
                 limit.setOffset(new SQLIntegerExpr(offset));
             }
 
@@ -447,7 +447,7 @@ public class PagerUtils {
                                                 boolean check) {
         SQLLimit limit = queryBlock.getLimit();
         if (limit != null) {
-            if (offset > 0) {
+            if (offset >= 0) {
                 limit.setOffset(new SQLIntegerExpr(offset));
             }
 
@@ -596,9 +596,11 @@ public class PagerUtils {
     }
 
     /**
-     * @param sql
-     * @param dbType
-     * @return if not exists limit, return -1;
+     * Retrieves the limit value from the provided SQL query string based on the specified database type.
+     *
+     * @param sql    the SQL query string
+     * @param dbType the database type for parsing the SQL query
+     * @return the limit value extracted from the SQL query, or -1 if the query does not have a valid limit clause
      */
     public static int getLimit(String sql, DbType dbType) {
         List<SQLStatement> stmtList = SQLUtils.parseStatements(sql, dbType);
