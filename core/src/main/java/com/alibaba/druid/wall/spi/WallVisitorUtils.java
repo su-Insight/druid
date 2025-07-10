@@ -115,7 +115,7 @@ public class WallVisitorUtils {
     }
 
     public static void check(WallVisitor visitor, SQLCreateTableStatement x) {
-        String tableName = ((SQLName) x.getName()).getSimpleName();
+        String tableName = x.getName().getSimpleName();
         WallContext context = WallContext.current();
         if (context != null) {
             WallSqlTableStat tableStat = context.getTableStat(tableName);
@@ -126,7 +126,7 @@ public class WallVisitorUtils {
     }
 
     public static void check(WallVisitor visitor, SQLAlterTableStatement x) {
-        String tableName = ((SQLName) x.getName()).getSimpleName();
+        String tableName = x.getName().getSimpleName();
         WallContext context = WallContext.current();
         if (context != null) {
             WallSqlTableStat tableStat = context.getTableStat(tableName);
@@ -137,16 +137,14 @@ public class WallVisitorUtils {
     }
 
     public static void check(WallVisitor visitor, SQLDropTableStatement x) {
-        for (SQLTableSource item : x.getTableSources()) {
-            if (item instanceof SQLExprTableSource) {
-                SQLExpr expr = ((SQLExprTableSource) item).getExpr();
-                String tableName = ((SQLName) expr).getSimpleName();
-                WallContext context = WallContext.current();
-                if (context != null) {
-                    WallSqlTableStat tableStat = context.getTableStat(tableName);
-                    if (tableStat != null) {
-                        tableStat.incrementDropCount();
-                    }
+        for (SQLExprTableSource item : x.getTableSources()) {
+            SQLExpr expr = item.getExpr();
+            String tableName = ((SQLName) expr).getSimpleName();
+            WallContext context = WallContext.current();
+            if (context != null) {
+                WallSqlTableStat tableStat = context.getTableStat(tableName);
+                if (tableStat != null) {
+                    tableStat.incrementDropCount();
                 }
             }
         }
@@ -220,7 +218,7 @@ public class WallVisitorUtils {
 
             Object whereValue = getConditionValue(visitor, where, visitor.getConfig().isSelectWhereAlwayTrueCheck());
 
-            if (Boolean.TRUE == whereValue) {
+            if (Boolean.TRUE.equals(whereValue)) {
                 if (visitor.getConfig().isSelectWhereAlwayTrueCheck()
                         && visitor.isSqlEndOfComment()
                         && !isSimpleConstExpr(where)) {
@@ -237,7 +235,7 @@ public class WallVisitorUtils {
             return;
         }
 
-        if (Boolean.TRUE == getConditionValue(visitor, x, visitor.getConfig().isSelectHavingAlwayTrueCheck())) {
+        if (Boolean.TRUE.equals(getConditionValue(visitor, x, visitor.getConfig().isSelectHavingAlwayTrueCheck()))) {
             if (visitor.getConfig().isSelectHavingAlwayTrueCheck()
                     && visitor.isSqlEndOfComment()
                     && !isSimpleConstExpr(x)) {
@@ -258,7 +256,7 @@ public class WallVisitorUtils {
         boolean hasUsing = false;
 
         if (x instanceof MySqlDeleteStatement) {
-            hasUsing = ((MySqlDeleteStatement) x).getUsing() != null;
+            hasUsing = x.getUsing() != null;
         }
 
         boolean isJoinTableSource = x.getTableSource() instanceof SQLJoinTableSource;
@@ -278,7 +276,7 @@ public class WallVisitorUtils {
         if (where != null) {
             checkCondition(visitor, where);
 
-            if (Boolean.TRUE == getConditionValue(visitor, where, config.isDeleteWhereAlwayTrueCheck())) {
+            if (Boolean.TRUE.equals(getConditionValue(visitor, where, config.isDeleteWhereAlwayTrueCheck()))) {
                 if (config.isDeleteWhereAlwayTrueCheck() && visitor.isSqlEndOfComment() && !isSimpleConstExpr(where)) {
                     addViolation(visitor, ErrorCode.ALWAYS_TRUE, "delete alway true condition not allow", x);
                 }
@@ -413,7 +411,7 @@ public class WallVisitorUtils {
             return false;
         }
 
-        parent = ((SQLSelect) parent).getParent();
+        parent = parent.getParent();
         if (parent instanceof SQLSelectStatement) {
             return true;
         }
@@ -613,9 +611,9 @@ public class WallVisitorUtils {
         List<ValuesClause> valuesClauses = null;
         ValuesClause valuesClause = null;
         if (x instanceof MySqlInsertStatement) {
-            valuesClauses = ((MySqlInsertStatement) x).getValuesList();
+            valuesClauses = x.getValuesList();
         } else if (x instanceof SQLServerInsertStatement) {
-            valuesClauses = ((MySqlInsertStatement) x).getValuesList();
+            valuesClauses = x.getValuesList();
         } else {
             valuesClause = x.getValues();
         }
@@ -868,7 +866,7 @@ public class WallVisitorUtils {
         } else {
             checkCondition(visitor, where);
 
-            if (Boolean.TRUE == getConditionValue(visitor, where, config.isUpdateWhereAlayTrueCheck())) {
+            if (Boolean.TRUE.equals(getConditionValue(visitor, where, config.isUpdateWhereAlayTrueCheck()))) {
                 if (config.isUpdateWhereAlayTrueCheck() && visitor.isSqlEndOfComment() && !isSimpleConstExpr(where)) {
                     addViolation(visitor, ErrorCode.ALWAYS_TRUE, "update alway true condition not allow", x);
                 }
@@ -1110,13 +1108,13 @@ public class WallVisitorUtils {
             Object result = getValue(visitor, item);
             Boolean booleanVal = SQLEvalVisitorUtils.castToBoolean(result);
 
-            if (Boolean.TRUE == booleanVal) {
+            if (Boolean.TRUE.equals(booleanVal)) {
                 final WallConditionContext wallContext = WallVisitorUtils.getWallConditionContext();
                 if (wallContext != null && !isFirst(item)) {
                     wallContext.setPartAlwayTrue(true);
                 }
                 dalConst++;
-            } else if (Boolean.FALSE == booleanVal) {
+            } else if (Boolean.FALSE.equals(booleanVal)) {
                 final WallConditionContext wallContext = WallVisitorUtils.getWallConditionContext();
                 if (wallContext != null && !isFirst(item)) {
                     wallContext.setPartAlwayFalse(true);
@@ -1124,7 +1122,7 @@ public class WallVisitorUtils {
                 allTrue = Boolean.FALSE;
                 dalConst++;
             } else {
-                if (allTrue != Boolean.FALSE) {
+                if (!Boolean.FALSE.equals(allTrue)) {
                     allTrue = null;
                 }
                 dalConst = 0;
@@ -1135,9 +1133,9 @@ public class WallVisitorUtils {
             }
         }
 
-        if (Boolean.TRUE == allTrue) {
+        if (Boolean.TRUE.equals(allTrue)) {
             return true;
-        } else if (Boolean.FALSE == allTrue) {
+        } else if (Boolean.FALSE.equals(allTrue)) {
             return false;
         }
         return null;
@@ -1427,7 +1425,7 @@ public class WallVisitorUtils {
             final WallConditionContext current = wallConditionContextLocal.get();
             WallContext context = WallContext.current();
             if (context != null) {
-                if (current.hasPartAlwayTrue() || Boolean.TRUE == value) {
+                if (current.hasPartAlwayTrue() || Boolean.TRUE.equals(value)) {
                     if (!isFirst(x)) {
                         context.incrementWarnings();
                     }
@@ -2433,7 +2431,7 @@ public class WallVisitorUtils {
                 SQLExpr where = queryBlock.getWhere();
                 if (where != null) {
                     Object whereValue = getValue(visitor, where);
-                    if (Boolean.TRUE == whereValue) {
+                    if (Boolean.TRUE.equals(whereValue)) {
                         boolean allIsConst = true;
                         for (SQLSelectItem item : queryBlock.getSelectList()) {
                             if (getValue(visitor, item.getExpr()) == null) {
